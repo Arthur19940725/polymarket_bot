@@ -1,0 +1,472 @@
+# Instincts generated from https://github.com/Arthur19940725/polymarket_bot
+# Generated: 2026-05-18T11:50:15.098Z
+# Version: 2.0
+# NOTE: This file supplements (does not replace) any existing curated instincts.
+# High-confidence manually curated instincts should be preserved alongside these.
+
+---
+id: polymarket_bot-commit-conventional
+trigger: "when writing a commit message"
+confidence: 0.85
+domain: git
+source: repo-analysis
+source_repo: https://github.com/Arthur19940725/polymarket_bot
+---
+
+# Polymarket_bot Commit Conventional
+
+## Action
+
+Use conventional commit format with prefixes: feat, docs
+
+## Evidence
+
+- 11 commits analyzed
+- Detected conventional commit pattern
+- Examples: feat(copy-bot): project scaffold + config + pytest setup, docs(copy-bot): README with quickstart, risk model, and known limitations
+
+---
+id: polymarket_bot-commit-length
+trigger: "when writing a commit message"
+confidence: 0.6
+domain: git
+source: repo-analysis
+source_repo: https://github.com/Arthur19940725/polymarket_bot
+---
+
+# Polymarket_bot Commit Length
+
+## Action
+
+Write moderate-length commit messages (~64 characters)
+
+## Evidence
+
+- Average commit message length: 64 chars
+- Based on 11 commits
+
+---
+id: polymarket_bot-naming-files
+trigger: "when creating a new file"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/Arthur19940725/polymarket_bot
+---
+
+# Polymarket_bot Naming Files
+
+## Action
+
+Use snake_case naming convention
+
+## Evidence
+
+- Analyzed file naming patterns in repository
+- Dominant pattern: snake_case
+
+---
+id: polymarket_bot-import-relative
+trigger: "when importing modules"
+confidence: 0.75
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/Arthur19940725/polymarket_bot
+---
+
+# Polymarket_bot Import Relative
+
+## Action
+
+Use relative imports for project files
+
+## Evidence
+
+- Import analysis shows relative import pattern
+- Example: import { x } from '../lib/x'
+
+---
+id: polymarket_bot-export-style
+trigger: "when exporting from a module"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/Arthur19940725/polymarket_bot
+---
+
+# Polymarket_bot Export Style
+
+## Action
+
+Prefer named exports
+
+## Evidence
+
+- Export pattern analysis
+- Dominant style: named
+
+---
+id: polymarket_bot-test-naming
+trigger: "when creating a test file"
+confidence: 0.85
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/Arthur19940725/polymarket_bot
+---
+
+# Polymarket_bot Test Naming
+
+## Action
+
+Name test files using the pattern: *.test.ts
+
+## Evidence
+
+- File pattern: *.test.ts
+- Consistent across test files
+
+---
+id: polymarket_bot-workflow-feature-development
+trigger: "when implementing a new feature"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/Arthur19940725/polymarket_bot
+---
+
+# Polymarket_bot Workflow Feature Development
+
+## Action
+
+Follow the feature-development workflow:
+1. Add feature implementation
+2. Add tests for feature
+3. Update documentation
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~27x per month
+- Files: **/*.test.*, **/api/**
+
+---
+id: polymarket_bot-workflow-add-new-module-with-tests
+trigger: "when doing add new module with tests"
+confidence: 0.85
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/Arthur19940725/polymarket_bot
+---
+
+# Polymarket_bot Workflow Add New Module With Tests
+
+## Action
+
+Follow the add-new-module-with-tests workflow:
+1. Create or update a main implementation file in polymarket/polymarket-copy-bot/{module}.py
+2. Create or update a corresponding test file in polymarket/polymarket-copy-bot/tests/test_{module}.py
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~7x per month
+- Files: polymarket/polymarket-copy-bot/{module}.py, polymarket/polymarket-copy-bot/tests/test_{module}.py
+
+---
+id: polymarket_bot-workflow-add-test-fixtures
+trigger: "when doing add test fixtures"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/Arthur19940725/polymarket_bot
+---
+
+# Polymarket_bot Workflow Add Test Fixtures
+
+## Action
+
+Follow the add-test-fixtures workflow:
+1. Add one or more JSON fixture files to polymarket/polymarket-copy-bot/tests/fixtures/
+2. Update or add a test file that uses the fixtures
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: polymarket/polymarket-copy-bot/tests/fixtures/*.json, polymarket/polymarket-copy-bot/tests/test_*.py
+
+---
+id: polymarket_bot-instinct-file-naming
+trigger: "When creating a new Python file"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: Arthur19940725/polymarket_bot
+---
+
+# Polymarket_bot Instinct File Naming
+
+## Action
+
+Name the file using snake_case
+
+## Evidence
+
+- Pattern in polymarket/polymarket-copy-bot/*.py
+- Naming conventions: files = snake_case
+
+---
+id: polymarket_bot-instinct-function-naming
+trigger: "When defining a new function"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: Arthur19940725/polymarket_bot
+---
+
+# Polymarket_bot Instinct Function Naming
+
+## Action
+
+Name the function using camelCase
+
+## Evidence
+
+- Naming conventions: functions = camelCase
+
+---
+id: polymarket_bot-instinct-class-naming
+trigger: "When defining a new class"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: Arthur19940725/polymarket_bot
+---
+
+# Polymarket_bot Instinct Class Naming
+
+## Action
+
+Name the class using PascalCase
+
+## Evidence
+
+- Naming conventions: classes = PascalCase
+
+---
+id: polymarket_bot-instinct-constant-naming
+trigger: "When defining a constant"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: Arthur19940725/polymarket_bot
+---
+
+# Polymarket_bot Instinct Constant Naming
+
+## Action
+
+Name the constant using SCREAMING_SNAKE_CASE
+
+## Evidence
+
+- Naming conventions: constants = SCREAMING_SNAKE_CASE
+
+---
+id: polymarket_bot-instinct-import-style
+trigger: "When importing modules within the package"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: Arthur19940725/polymarket_bot
+---
+
+# Polymarket_bot Instinct Import Style
+
+## Action
+
+Use relative imports
+
+## Evidence
+
+- importStyle: relative
+- Pattern in polymarket/polymarket-copy-bot/*.py
+
+---
+id: polymarket_bot-instinct-export-style
+trigger: "When exporting functions or classes"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: Arthur19940725/polymarket_bot
+---
+
+# Polymarket_bot Instinct Export Style
+
+## Action
+
+Use named exports
+
+## Evidence
+
+- exportStyle: named
+
+---
+id: polymarket_bot-instinct-test-file-location
+trigger: "When adding tests for a module"
+confidence: 0.9
+domain: testing
+source: repo-analysis
+source_repo: Arthur19940725/polymarket_bot
+---
+
+# Polymarket_bot Instinct Test File Location
+
+## Action
+
+Place test files in polymarket/polymarket-copy-bot/tests/ as test_{module}.py
+
+## Evidence
+
+- Pattern in polymarket/polymarket-copy-bot/tests/test_{module}.py
+- Workflow: add-new-module-with-tests
+
+---
+id: polymarket_bot-instinct-test-type
+trigger: "When writing tests"
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: Arthur19940725/polymarket_bot
+---
+
+# Polymarket_bot Instinct Test Type
+
+## Action
+
+Write unit tests for each module
+
+## Evidence
+
+- testTypes: unit
+- Workflow: add-new-module-with-tests
+
+---
+id: polymarket_bot-instinct-test-fixtures
+trigger: "When simulating external API data in tests"
+confidence: 0.85
+domain: testing
+source: repo-analysis
+source_repo: Arthur19940725/polymarket_bot
+---
+
+# Polymarket_bot Instinct Test Fixtures
+
+## Action
+
+Add JSON fixture files to polymarket/polymarket-copy-bot/tests/fixtures/ and reference them in test files
+
+## Evidence
+
+- Workflow: add-test-fixtures
+- Pattern in polymarket/polymarket-copy-bot/tests/fixtures/*.json
+
+---
+id: polymarket_bot-instinct-git-commit-format
+trigger: "When making a commit"
+confidence: 0.9
+domain: git
+source: repo-analysis
+source_repo: Arthur19940725/polymarket_bot
+---
+
+# Polymarket_bot Instinct Git Commit Format
+
+## Action
+
+Use conventional commit format with a prefix (e.g., feat, docs) and a short description
+
+## Evidence
+
+- commits: type = conventional, prefixes = [feat, docs]
+- Example: feat(copy-bot): add clock abstraction
+
+---
+id: polymarket_bot-instinct-git-commit-length
+trigger: "When writing a commit message"
+confidence: 0.7
+domain: git
+source: repo-analysis
+source_repo: Arthur19940725/polymarket_bot
+---
+
+# Polymarket_bot Instinct Git Commit Length
+
+## Action
+
+Keep the commit message around 64 characters on average
+
+## Evidence
+
+- commits: averageLength = 64
+
+---
+id: polymarket_bot-instinct-add-new-module-with-tests
+trigger: "When implementing a new core component or feature"
+confidence: 0.95
+domain: workflow
+source: repo-analysis
+source_repo: Arthur19940725/polymarket_bot
+---
+
+# Polymarket_bot Instinct Add New Module With Tests
+
+## Action
+
+Create or update polymarket/polymarket-copy-bot/{module}.py and a corresponding test file in polymarket/polymarket-copy-bot/tests/test_{module}.py
+
+## Evidence
+
+- Workflow: add-new-module-with-tests
+- Pattern in commit sequences and file structure
+
+---
+id: polymarket_bot-instinct-add-test-fixtures
+trigger: "When testing new API client functionality or simulating external data"
+confidence: 0.85
+domain: workflow
+source: repo-analysis
+source_repo: Arthur19940725/polymarket_bot
+---
+
+# Polymarket_bot Instinct Add Test Fixtures
+
+## Action
+
+Add JSON fixture files to polymarket/polymarket-copy-bot/tests/fixtures/ and update or add relevant test files
+
+## Evidence
+
+- Workflow: add-test-fixtures
+- Pattern in commit sequences and file structure
+
+---
+id: polymarket_bot-instinct-feature-development-workflow
+trigger: "When developing a new feature"
+confidence: 0.8
+domain: workflow
+source: repo-analysis
+source_repo: Arthur19940725/polymarket_bot
+---
+
+# Polymarket_bot Instinct Feature Development Workflow
+
+## Action
+
+Implement the feature, add corresponding tests, and update documentation in sequence
+
+## Evidence
+
+- Workflow: feature-development
+- Commit sequence: Add feature, Add tests, Update docs
+
