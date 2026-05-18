@@ -1,0 +1,5 @@
+[
+  {"proxyWallet": "0xAlice", "volume": 50000, "pnl": 8000},
+  {"proxyWallet": "0xBob", "volume": 30000, "pnl": 5000},
+  {"proxyWallet": "0xCharlie", "volume": 500, "pnl": 100}
+]
