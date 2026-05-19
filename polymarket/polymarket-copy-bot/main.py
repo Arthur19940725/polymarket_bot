@@ -21,6 +21,27 @@ def _setup_logging():
     )
 
 
+def _prevent_system_sleep() -> bool:
+    """Ask the OS to stay awake while the watcher runs.
+
+    Windows: SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED).
+    Other OSes: no-op (caller can use caffeinate / systemd-inhibit manually).
+    Returns True if the request was accepted, False otherwise.
+    """
+    if sys.platform != "win32":
+        return False
+    try:
+        import ctypes
+        ES_CONTINUOUS = 0x80000000
+        ES_SYSTEM_REQUIRED = 0x00000001
+        flags = ES_CONTINUOUS | ES_SYSTEM_REQUIRED
+        prev = ctypes.windll.kernel32.SetThreadExecutionState(flags)
+        return prev != 0
+    except Exception:
+        logging.exception("SetThreadExecutionState failed")
+        return False
+
+
 def cmd_rank(args) -> int:
     storage = Storage(config.DB_PATH)
     api = RequestsPolymarketAPI()
@@ -78,7 +99,10 @@ def cmd_watch(args) -> int:
                  config.MAX_OPEN_POSITIONS,
                  config.MAX_OPEN_PER_TRADER,
                  config.DAILY_LOSS_LIMIT)
+    if _prevent_system_sleep():
+        logging.info("system sleep prevented (Windows ES_SYSTEM_REQUIRED)")
 
+    consecutive_poll_failures = 0
     while True:
         today = clock.now().date().isoformat()
         top = storage.load_top_10(today)
@@ -90,8 +114,15 @@ def cmd_watch(args) -> int:
         top_addrs = [t.trader_addr for t in top]
         try:
             events = watcher.poll(top_addrs)
+            consecutive_poll_failures = 0
         except Exception:
-            logging.exception("poll failed; will retry")
+            consecutive_poll_failures += 1
+            # Loud alarm when failures accumulate -- almost always means
+            # CF / rate limit / network outage worth a human glance.
+            level = (logging.ERROR if consecutive_poll_failures >= 5
+                     else logging.WARNING)
+            logging.log(level, "poll failed (consecutive=%d); will retry",
+                        consecutive_poll_failures, exc_info=True)
             clock.sleep(config.POLL_INTERVAL_SEC)
             continue
         for ev in events:
