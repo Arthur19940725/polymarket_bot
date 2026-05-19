@@ -117,3 +117,52 @@ def test_set_and_check_halted(tmp_db_path):
     assert s.is_halted("2026-05-18") is False
     s.mark_halted("2026-05-18", "2026-05-18T15:00:00+00:00")
     assert s.is_halted("2026-05-18") is True
+
+
+def test_metrics_cache_miss_returns_none(tmp_db_path):
+    s = Storage(tmp_db_path)
+    assert s.get_cached_metrics("2026-05-19", "0xA") is None
+
+
+def test_metrics_cache_roundtrip(tmp_db_path):
+    s = Storage(tmp_db_path)
+    s.save_cached_metrics(
+        date="2026-05-19", trader_addr="0xA",
+        resolved_count=42, lifetime_volume=10000.0,
+        last_trade_ts=1779100000, win_rate=0.7,
+        total_pnl=5000.0, sharpe_like=0.4,
+    )
+    got = s.get_cached_metrics("2026-05-19", "0xA")
+    assert got is not None
+    assert got["resolved_count"] == 42
+    assert got["total_pnl"] == 5000.0
+    assert got["win_rate"] == 0.7
+
+
+def test_metrics_cache_isolated_by_date(tmp_db_path):
+    """Same trader, different dates -> independent entries."""
+    s = Storage(tmp_db_path)
+    s.save_cached_metrics(
+        date="2026-05-18", trader_addr="0xA",
+        resolved_count=10, lifetime_volume=1000.0,
+        last_trade_ts=1, win_rate=0.5, total_pnl=100.0, sharpe_like=0.1,
+    )
+    assert s.get_cached_metrics("2026-05-19", "0xA") is None
+
+
+def test_metrics_cache_upsert(tmp_db_path):
+    """Saving twice on same (date, addr) updates the row."""
+    s = Storage(tmp_db_path)
+    s.save_cached_metrics(
+        date="2026-05-19", trader_addr="0xA",
+        resolved_count=10, lifetime_volume=1000.0,
+        last_trade_ts=1, win_rate=0.5, total_pnl=100.0, sharpe_like=0.1,
+    )
+    s.save_cached_metrics(
+        date="2026-05-19", trader_addr="0xA",
+        resolved_count=20, lifetime_volume=2000.0,
+        last_trade_ts=2, win_rate=0.6, total_pnl=200.0, sharpe_like=0.2,
+    )
+    got = s.get_cached_metrics("2026-05-19", "0xA")
+    assert got["resolved_count"] == 20
+    assert got["total_pnl"] == 200.0

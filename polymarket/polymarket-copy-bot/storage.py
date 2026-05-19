@@ -89,6 +89,18 @@ CREATE TABLE IF NOT EXISTS daily_pnl (
     realized_pnl REAL NOT NULL DEFAULT 0,
     halted_at TEXT
 );
+
+CREATE TABLE IF NOT EXISTS metrics_cache (
+    date TEXT NOT NULL,
+    trader_addr TEXT NOT NULL,
+    resolved_count INTEGER NOT NULL,
+    lifetime_volume REAL NOT NULL,
+    last_trade_ts INTEGER NOT NULL,
+    win_rate REAL NOT NULL,
+    total_pnl REAL NOT NULL,
+    sharpe_like REAL NOT NULL,
+    PRIMARY KEY (date, trader_addr)
+);
 """
 
 
@@ -232,3 +244,36 @@ class Storage:
                 "SELECT halted_at FROM daily_pnl WHERE date=?", (date,)
             ).fetchone()
             return bool(row and row["halted_at"])
+
+    # --- metrics_cache ---
+    def get_cached_metrics(self, date: str,
+                           trader_addr: str) -> Optional[dict]:
+        with self._conn() as c:
+            row = c.execute(
+                "SELECT resolved_count, lifetime_volume, last_trade_ts, "
+                "win_rate, total_pnl, sharpe_like FROM metrics_cache "
+                "WHERE date=? AND trader_addr=?",
+                (date, trader_addr),
+            ).fetchone()
+            return dict(row) if row else None
+
+    def save_cached_metrics(self, date: str, trader_addr: str,
+                            resolved_count: int, lifetime_volume: float,
+                            last_trade_ts: int, win_rate: float,
+                            total_pnl: float, sharpe_like: float) -> None:
+        with self._conn() as c:
+            c.execute(
+                "INSERT INTO metrics_cache (date, trader_addr, "
+                "resolved_count, lifetime_volume, last_trade_ts, "
+                "win_rate, total_pnl, sharpe_like) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
+                "ON CONFLICT(date, trader_addr) DO UPDATE SET "
+                "resolved_count=excluded.resolved_count, "
+                "lifetime_volume=excluded.lifetime_volume, "
+                "last_trade_ts=excluded.last_trade_ts, "
+                "win_rate=excluded.win_rate, "
+                "total_pnl=excluded.total_pnl, "
+                "sharpe_like=excluded.sharpe_like",
+                (date, trader_addr, resolved_count, lifetime_volume,
+                 last_trade_ts, win_rate, total_pnl, sharpe_like),
+            )

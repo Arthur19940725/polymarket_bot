@@ -72,8 +72,14 @@ class Ranker:
         return True
 
     def _compute_metrics(self, address: str) -> RawMetrics:
-        # Fetch full paginated activity, then reconstruct per-market PnL.
-        # If the api supports user_activity_all, use it; otherwise fall back.
+        # Cache check: same-day (date, addr) -> reuse last reconstruction.
+        # Cache key is the UTC date string, so it naturally invalidates daily.
+        date_str = self.clock.now().date().isoformat()
+        if self.storage is not None:
+            hit = self.storage.get_cached_metrics(date_str, address)
+            if hit is not None:
+                return RawMetrics(address=address, **hit)
+        # Cache miss: fetch full paginated activity and reconstruct PnL.
         fetcher = getattr(self.api, "user_activity_all", None)
         if fetcher is not None:
             trades: list[Trade] = fetcher(address)
@@ -81,6 +87,16 @@ class Ranker:
             trades = self.api.user_activity(address)
         market_pnls = reconstruct(trades)
         agg = aggregate(market_pnls, trades)
+        if self.storage is not None:
+            self.storage.save_cached_metrics(
+                date=date_str, trader_addr=address,
+                resolved_count=agg.resolved_count,
+                lifetime_volume=agg.lifetime_volume,
+                last_trade_ts=agg.last_trade_ts,
+                win_rate=agg.win_rate,
+                total_pnl=agg.total_pnl,
+                sharpe_like=agg.sharpe_like,
+            )
         return RawMetrics(
             address=address,
             resolved_count=agg.resolved_count,

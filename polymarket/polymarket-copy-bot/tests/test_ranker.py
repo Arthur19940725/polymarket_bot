@@ -94,6 +94,61 @@ def test_filter_rejects_low_win_rate():
     assert r._passes_filter(metrics) is False
 
 
+def test_compute_metrics_uses_cache_when_available(tmp_db_path, fixtures_dir):
+    """Second call on same date should hit cache, not re-fetch activity."""
+    from storage import Storage
+    s = Storage(tmp_db_path)
+    api = FakeAPI(
+        leaderboard=_load(fixtures_dir, "leaderboard.json"),
+        activity_by_addr={
+            "0xAlice": _load(fixtures_dir, "activity_alice.json"),
+        },
+    )
+    # Track activity calls
+    call_count = {"n": 0}
+    orig = api.user_activity_all
+    def counting(*a, **kw):
+        call_count["n"] += 1
+        return orig(*a, **kw)
+    api.user_activity_all = counting
+
+    now = datetime(2026, 5, 18, tzinfo=timezone.utc)
+    r = Ranker(api=api, clock=FakeClock(now), storage=s)
+
+    m1 = r._compute_metrics("0xAlice")
+    assert call_count["n"] == 1
+    m2 = r._compute_metrics("0xAlice")
+    assert call_count["n"] == 1, "second call should hit cache, not refetch"
+    assert m1.total_pnl == m2.total_pnl
+    assert m1.win_rate == m2.win_rate
+
+
+def test_compute_metrics_cache_invalidates_on_new_date(tmp_db_path, fixtures_dir):
+    """A different day -> cache miss, re-fetches."""
+    from storage import Storage
+    s = Storage(tmp_db_path)
+    api = FakeAPI(
+        leaderboard=_load(fixtures_dir, "leaderboard.json"),
+        activity_by_addr={"0xAlice": _load(fixtures_dir, "activity_alice.json")},
+    )
+    call_count = {"n": 0}
+    orig = api.user_activity_all
+    def counting(*a, **kw):
+        call_count["n"] += 1
+        return orig(*a, **kw)
+    api.user_activity_all = counting
+
+    r1 = Ranker(api=api, clock=FakeClock(
+        datetime(2026, 5, 18, tzinfo=timezone.utc)), storage=s)
+    r1._compute_metrics("0xAlice")
+    assert call_count["n"] == 1
+
+    r2 = Ranker(api=api, clock=FakeClock(
+        datetime(2026, 5, 19, tzinfo=timezone.utc)), storage=s)
+    r2._compute_metrics("0xAlice")
+    assert call_count["n"] == 2  # new date -> cache miss
+
+
 def test_compute_metrics_from_activity(fixtures_dir):
     """alice has 3 closed markets:
        m1 round-trip: +20
