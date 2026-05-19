@@ -117,6 +117,10 @@ class Storage:
 
     def _init_schema(self):
         with self._conn() as c:
+            # WAL: readers and writers don't block each other, so a long-running
+            # watcher and an ad-hoc rank command can share the same DB cleanly.
+            c.execute("PRAGMA journal_mode = WAL")
+            c.execute("PRAGMA synchronous = NORMAL")
             c.executescript(_SCHEMA)
 
     def list_tables(self) -> list[str]:

@@ -10,6 +10,15 @@ def test_init_creates_all_tables(tmp_db_path):
     assert set(tables) >= {"top_10", "our_positions", "trades", "daily_pnl"}
 
 
+def test_init_enables_wal_mode(tmp_db_path):
+    """WAL lets concurrent rank + watcher operate without write-lock contention."""
+    import sqlite3
+    Storage(tmp_db_path)
+    with sqlite3.connect(tmp_db_path) as c:
+        mode = c.execute("PRAGMA journal_mode").fetchone()[0]
+    assert mode.lower() == "wal"
+
+
 def test_save_and_load_top_10(tmp_db_path):
     s = Storage(tmp_db_path)
     today = "2026-05-18"
