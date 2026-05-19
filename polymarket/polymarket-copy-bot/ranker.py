@@ -17,6 +17,7 @@ from pnl_reconstructor import reconstruct, aggregate
 from config import (
     RANK_WINDOW_DAYS, RANK_WEIGHTS, RANK_CANDIDATE_POOL_SIZE,
     MIN_RESOLVED_MARKETS, MIN_LIFETIME_VOLUME_USD, MIN_LAST_TRADE_DAYS,
+    MIN_TOTAL_PNL_USD, MIN_WIN_RATE,
 )
 
 
@@ -54,6 +55,8 @@ class Ranker:
         min_markets = getattr(ranker_module, 'MIN_RESOLVED_MARKETS', MIN_RESOLVED_MARKETS)
         min_volume = getattr(ranker_module, 'MIN_LIFETIME_VOLUME_USD', MIN_LIFETIME_VOLUME_USD)
         min_days = getattr(ranker_module, 'MIN_LAST_TRADE_DAYS', MIN_LAST_TRADE_DAYS)
+        min_pnl = getattr(ranker_module, 'MIN_TOTAL_PNL_USD', MIN_TOTAL_PNL_USD)
+        min_winrate = getattr(ranker_module, 'MIN_WIN_RATE', MIN_WIN_RATE)
 
         if m.resolved_count < min_markets:
             return False
@@ -61,6 +64,10 @@ class Ranker:
             return False
         now_ts = int(self.clock.now().timestamp())
         if now_ts - m.last_trade_ts > min_days * 86400:
+            return False
+        if m.total_pnl < min_pnl:
+            return False
+        if m.win_rate < min_winrate:
             return False
         return True
 

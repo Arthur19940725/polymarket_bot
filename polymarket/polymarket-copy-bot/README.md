@@ -56,6 +56,8 @@ python main.py backtest --days 60
 | `DAILY_LOSS_LIMIT` | 50 | 日已实现亏损上限（熔断阈值） |
 | `MAX_OPEN_POSITIONS` | 20 | G3：同时持有的 OPEN 仓位总数上限（0 禁用） |
 | `MAX_OPEN_PER_TRADER` | 5 | G4：单交易员最多并发持仓数（0 禁用） |
+| `MIN_TOTAL_PNL_USD` | 0 | 绝对阈值：候选必须满足 total_pnl ≥ 此值 |
+| `MIN_WIN_RATE` | 0.5 | 绝对阈值：候选必须满足 win_rate ≥ 此值 |
 | `RANK_WEIGHTS` | 0.3,0.3,0.4 | win_rate / total_pnl / sharpe 权重 |
 | `RANK_WINDOW_DAYS` | 90 | 评分窗口 |
 | `POLL_INTERVAL_SEC` | 30 | 检测新单延迟 |

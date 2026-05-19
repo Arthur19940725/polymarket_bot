@@ -40,6 +40,9 @@ RANK_MAX_ACTIVITY_PER_USER = int(os.getenv("RANK_MAX_ACTIVITY_PER_USER", "3000")
 MIN_RESOLVED_MARKETS = int(os.getenv("MIN_RESOLVED_MARKETS", "20"))
 MIN_LIFETIME_VOLUME_USD = float(os.getenv("MIN_LIFETIME_VOLUME_USD", "1000"))
 MIN_LAST_TRADE_DAYS = int(os.getenv("MIN_LAST_TRADE_DAYS", "14"))
+# Absolute thresholds: "best traders" must be profitable winners
+MIN_TOTAL_PNL_USD = float(os.getenv("MIN_TOTAL_PNL_USD", "0"))
+MIN_WIN_RATE = float(os.getenv("MIN_WIN_RATE", "0.5"))
 
 # Watcher
 POLL_INTERVAL_SEC = int(os.getenv("POLL_INTERVAL_SEC", "30"))

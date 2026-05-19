@@ -68,6 +68,32 @@ def test_filter_passes_good_candidate():
     assert r._passes_filter(metrics) is True
 
 
+def test_filter_rejects_negative_total_pnl():
+    """Absolute floor: only positive-PnL traders qualify, regardless of
+    other metrics. Reason: spec is 'follow the best traders'; losing
+    traders should never appear, even if z-score would rank them."""
+    now = datetime(2026, 5, 18, tzinfo=timezone.utc)
+    r = Ranker(api=FakeAPI([], {}), clock=FakeClock(now))
+    metrics = RawMetrics(
+        address="0xX", resolved_count=100, lifetime_volume=50000,
+        last_trade_ts=int(datetime(2026, 5, 17, tzinfo=timezone.utc).timestamp()),
+        win_rate=0.55, total_pnl=-100.0, sharpe_like=0.3,
+    )
+    assert r._passes_filter(metrics) is False
+
+
+def test_filter_rejects_low_win_rate():
+    """Absolute floor: 50% win rate minimum."""
+    now = datetime(2026, 5, 18, tzinfo=timezone.utc)
+    r = Ranker(api=FakeAPI([], {}), clock=FakeClock(now))
+    metrics = RawMetrics(
+        address="0xX", resolved_count=100, lifetime_volume=50000,
+        last_trade_ts=int(datetime(2026, 5, 17, tzinfo=timezone.utc).timestamp()),
+        win_rate=0.40, total_pnl=10000.0, sharpe_like=0.2,
+    )
+    assert r._passes_filter(metrics) is False
+
+
 def test_compute_metrics_from_activity(fixtures_dir):
     """alice has 3 closed markets:
        m1 round-trip: +20
