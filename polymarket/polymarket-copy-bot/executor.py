@@ -40,7 +40,7 @@ class DryRunExecutor:
             self._handle_close(event)
 
     def _handle_open(self, e: Event) -> None:
-        if not self.gate.allow_open():
+        if not self.gate.allow_open(source_trader=e.source_trader):
             logger.info("[risk] open blocked: %s %s %s",
                         e.source_trader, e.market_id, e.side)
             return
@@ -106,7 +106,7 @@ class LiveExecutor(DryRunExecutor):
         self.clob = clob_client
 
     def _handle_open(self, e: Event) -> None:
-        if not self.gate.allow_open():
+        if not self.gate.allow_open(source_trader=e.source_trader):
             return
         existing = self.storage.get_open_position(
             e.source_trader, e.market_id, e.side)

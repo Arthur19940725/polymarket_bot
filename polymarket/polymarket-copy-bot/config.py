@@ -26,6 +26,12 @@ DAILY_LOSS_LIMIT = float(os.getenv("DAILY_LOSS_LIMIT", "50"))
 _max_open = os.getenv("MAX_OPEN_POSITIONS", "20").strip()
 MAX_OPEN_POSITIONS = int(_max_open) if _max_open and int(_max_open) > 0 else None
 
+# G4 risk control: cap per source_trader (0 or empty = disabled)
+_max_per_trader = os.getenv("MAX_OPEN_PER_TRADER", "5").strip()
+MAX_OPEN_PER_TRADER = (int(_max_per_trader)
+                       if _max_per_trader and int(_max_per_trader) > 0
+                       else None)
+
 # Ranker
 RANK_WINDOW_DAYS = int(os.getenv("RANK_WINDOW_DAYS", "90"))
 RANK_WEIGHTS = tuple(float(w) for w in os.getenv("RANK_WEIGHTS", "0.3,0.3,0.4").split(","))

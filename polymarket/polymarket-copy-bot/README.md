@@ -34,17 +34,17 @@ python main.py backtest --days 60
 
 ## 风控说明（重要）
 
-两道硬风控（任一触发都会拒绝**新开仓**，但**平仓始终允许**——保留止损能力）：
+三道硬风控（任一触发都会拒绝**新开仓**，但**平仓始终允许**——保留止损能力）：
 
 1. `DAILY_LOSS_LIMIT` —— 日已实现亏损上限（事后熔断）
 2. `MAX_OPEN_POSITIONS` —— **G3** 同时持有的 OPEN 仓位总数上限（事前限频）
+3. `MAX_OPEN_PER_TRADER` —— **G4** 单个 source_trader 最多并发持仓数（防止单人主导敞口）
 
-G3 是基于第一次真实联调发现加入的：3 个 top trader 在 3 分钟内触发了 34 个 OPEN 事件。如果 `COPY_AMOUNT_USD=5`、`MAX_OPEN_POSITIONS=20`，一旦达到 20 个仓位，新单被拒绝直到有仓位 resolve / 被 source 平仓腾出名额。
+**G3** 来自第一次真实联调：3 个 top trader 在 3 分钟内触发了 34 个 OPEN。如果按 `COPY_AMOUNT_USD=5`、`MAX_OPEN_POSITIONS=20`，达到 20 仓后新单被拒绝直到有仓位 resolve / 被 source 平仓腾出名额。
 
-**仍未启用的风控**（按需打开）：
-- **单交易员累计敞口上限（G4）**：未实现。如果某个 top trader 一天疯狂开仓，G3 会把总数封顶，但敞口仍可能集中在他一人身上。
+**G4** 来自第二次真实联调（30 分钟）：rank #3 一人吃掉 18/20 仓位（90%），G3 只控总数不控分布。`MAX_OPEN_PER_TRADER=5` 强制 20 个仓位至少分散到 4 个 source_trader。
 
-把 `MAX_OPEN_POSITIONS=0`（或留空）可禁用 G3。
+把任一变量设为 `0`（或留空）可禁用对应风控。
 
 ## 配置参考
 
@@ -55,6 +55,7 @@ G3 是基于第一次真实联调发现加入的：3 个 top trader 在 3 分钟
 | `COPY_AMOUNT_USD` | 5 | 每笔跟单的固定美元金额 |
 | `DAILY_LOSS_LIMIT` | 50 | 日已实现亏损上限（熔断阈值） |
 | `MAX_OPEN_POSITIONS` | 20 | G3：同时持有的 OPEN 仓位总数上限（0 禁用） |
+| `MAX_OPEN_PER_TRADER` | 5 | G4：单交易员最多并发持仓数（0 禁用） |
 | `RANK_WEIGHTS` | 0.3,0.3,0.4 | win_rate / total_pnl / sharpe 权重 |
 | `RANK_WINDOW_DAYS` | 90 | 评分窗口 |
 | `POLL_INTERVAL_SEC` | 30 | 检测新单延迟 |

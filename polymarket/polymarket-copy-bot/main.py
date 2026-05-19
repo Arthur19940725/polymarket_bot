@@ -50,7 +50,8 @@ def cmd_watch(args) -> int:
     clock = RealClock()
     gate = RiskGate(storage=storage, clock=clock,
                     daily_loss_limit=config.DAILY_LOSS_LIMIT,
-                    max_open_positions=config.MAX_OPEN_POSITIONS)
+                    max_open_positions=config.MAX_OPEN_POSITIONS,
+                    max_open_per_trader=config.MAX_OPEN_PER_TRADER)
     watcher = Watcher(api=api, clock=clock)
 
     if args.dry_run:
@@ -71,10 +72,11 @@ def cmd_watch(args) -> int:
         mode_str = "LIVE"
 
     logging.info("Starting watcher in %s mode, poll=%ds, copy=$%.2f, "
-                 "max_open=%s, loss_limit=$%.2f",
+                 "max_open=%s, max_per_trader=%s, loss_limit=$%.2f",
                  mode_str, config.POLL_INTERVAL_SEC,
                  config.COPY_AMOUNT_USD,
                  config.MAX_OPEN_POSITIONS,
+                 config.MAX_OPEN_PER_TRADER,
                  config.DAILY_LOSS_LIMIT)
 
     while True:
