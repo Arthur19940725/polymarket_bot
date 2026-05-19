@@ -13,7 +13,7 @@ def _load(fixtures_dir, name):
 
 
 def test_first_poll_emits_no_events(fixtures_dir):
-    """The first poll establishes baseline; nothing is 'new'."""
+    """First poll establishes baseline; nothing is 'new'."""
     api = FakeAPI(
         leaderboard=[],
         activity_by_addr={"0xAlice": _load(fixtures_dir, "activity_alice.json")},
@@ -39,25 +39,19 @@ def test_second_poll_detects_new_open(fixtures_dir):
     assert e.kind == "OPEN"
     assert e.source_trader == "0xAlice"
     assert e.market_id == "m9"
-    assert e.side == "YES"
+    assert e.side == "Yes"
     assert e.price == 0.45
 
 
-def test_detects_close_when_position_disappears(fixtures_dir):
+def test_detects_close_when_position_disappears():
     """If a trader holds a position then exits, watcher emits CLOSE."""
     initial = [{
-        "market": "mX", "side": "YES", "type": "BUY", "size": 100,
-        "price": 0.4, "timestamp": 1747569000, "resolved": False,
-        "pnl_realized": None,
+        "conditionId": "mX", "type": "TRADE", "side": "BUY", "outcome": "Yes",
+        "size": 100, "usdcSize": 40, "price": 0.4, "timestamp": 1747569000,
     }]
-    after = [{
-        "market": "mX", "side": "YES", "type": "BUY", "size": 100,
-        "price": 0.4, "timestamp": 1747569000, "resolved": False,
-        "pnl_realized": None,
-    }, {
-        "market": "mX", "side": "YES", "type": "SELL", "size": 100,
-        "price": 0.55, "timestamp": 1747569300, "resolved": False,
-        "pnl_realized": None,
+    after = initial + [{
+        "conditionId": "mX", "type": "TRADE", "side": "SELL", "outcome": "Yes",
+        "size": 100, "usdcSize": 55, "price": 0.55, "timestamp": 1747569300,
     }]
     api = FakeAPI(leaderboard=[], activity_by_addr={"0xA": initial})
     w = Watcher(api=api, clock=FakeClock(
@@ -71,17 +65,15 @@ def test_detects_close_when_position_disappears(fixtures_dir):
     assert events[0].price == 0.55
 
 
-def test_close_ignored_when_trader_not_in_top10(fixtures_dir):
-    """E1 rule: trader dropped from top 10 → ignore their exits."""
+def test_close_ignored_when_trader_not_in_top10():
+    """E1 rule: trader dropped from top 10 -> ignore their exits."""
     initial = [{
-        "market": "mX", "side": "YES", "type": "BUY", "size": 100,
-        "price": 0.4, "timestamp": 1747569000, "resolved": False,
-        "pnl_realized": None,
+        "conditionId": "mX", "type": "TRADE", "side": "BUY", "outcome": "Yes",
+        "size": 100, "usdcSize": 40, "price": 0.4, "timestamp": 1747569000,
     }]
     after = initial + [{
-        "market": "mX", "side": "YES", "type": "SELL", "size": 100,
-        "price": 0.55, "timestamp": 1747569300, "resolved": False,
-        "pnl_realized": None,
+        "conditionId": "mX", "type": "TRADE", "side": "SELL", "outcome": "Yes",
+        "size": 100, "usdcSize": 55, "price": 0.55, "timestamp": 1747569300,
     }]
     api = FakeAPI(leaderboard=[], activity_by_addr={"0xA": initial})
     w = Watcher(api=api, clock=FakeClock(
@@ -90,3 +82,19 @@ def test_close_ignored_when_trader_not_in_top10(fixtures_dir):
     api.set_activity("0xA", after)
     events = w.poll(top_addresses=[])  # dropped from top 10
     assert events == []  # CLOSE suppressed
+
+
+def test_redeem_and_reward_events_skipped():
+    """REDEEM/MERGE/REWARD should NOT generate watcher events."""
+    api = FakeAPI(leaderboard=[], activity_by_addr={"0xA": []})
+    w = Watcher(api=api, clock=FakeClock(
+        datetime(2026, 5, 18, tzinfo=timezone.utc)))
+    w.poll(top_addresses=["0xA"])
+    api.set_activity("0xA", [
+        {"conditionId": "mX", "type": "REDEEM", "side": "", "outcome": "",
+         "size": 100, "usdcSize": 100, "price": 0, "timestamp": 1747569100},
+        {"conditionId": "mY", "type": "REWARD", "side": "", "outcome": "",
+         "size": 50, "usdcSize": 5, "price": 0, "timestamp": 1747569200},
+    ])
+    events = w.poll(top_addresses=["0xA"])
+    assert events == []

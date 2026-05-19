@@ -8,6 +8,7 @@ load_dotenv()
 GAMMA_API = "https://gamma-api.polymarket.com"
 CLOB_API = "https://clob.polymarket.com"
 DATA_API = "https://data-api.polymarket.com"
+LB_API = "https://lb-api.polymarket.com"
 
 # Chain
 CHAIN_ID = 137
@@ -24,7 +25,8 @@ DAILY_LOSS_LIMIT = float(os.getenv("DAILY_LOSS_LIMIT", "50"))
 # Ranker
 RANK_WINDOW_DAYS = int(os.getenv("RANK_WINDOW_DAYS", "90"))
 RANK_WEIGHTS = tuple(float(w) for w in os.getenv("RANK_WEIGHTS", "0.3,0.3,0.4").split(","))
-RANK_CANDIDATE_POOL_SIZE = int(os.getenv("RANK_CANDIDATE_POOL_SIZE", "500"))
+RANK_CANDIDATE_POOL_SIZE = int(os.getenv("RANK_CANDIDATE_POOL_SIZE", "50"))
+RANK_MAX_ACTIVITY_PER_USER = int(os.getenv("RANK_MAX_ACTIVITY_PER_USER", "3000"))
 MIN_RESOLVED_MARKETS = int(os.getenv("MIN_RESOLVED_MARKETS", "20"))
 MIN_LIFETIME_VOLUME_USD = float(os.getenv("MIN_LIFETIME_VOLUME_USD", "1000"))
 MIN_LAST_TRADE_DAYS = int(os.getenv("MIN_LAST_TRADE_DAYS", "14"))

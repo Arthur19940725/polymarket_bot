@@ -7,14 +7,12 @@ from storage import Storage
 
 
 def test_backtest_replays_trades_in_order(tmp_db_path):
-    """Two trades over time -> both mirrored, PnL accumulated."""
+    """One round-trip TRADE -> mirrored OPEN+CLOSE, positive PnL."""
     raw = [
-        {"market": "m1", "side": "YES", "type": "BUY", "size": 100,
-         "price": 0.4, "timestamp": 1747000000, "resolved": False,
-         "pnl_realized": None},
-        {"market": "m1", "side": "YES", "type": "SELL", "size": 100,
-         "price": 0.55, "timestamp": 1747000600, "resolved": False,
-         "pnl_realized": None},
+        {"conditionId": "m1", "type": "TRADE", "side": "BUY", "outcome": "Yes",
+         "size": 100, "usdcSize": 40, "price": 0.4, "timestamp": 1747000000},
+        {"conditionId": "m1", "type": "TRADE", "side": "SELL", "outcome": "Yes",
+         "size": 100, "usdcSize": 55, "price": 0.55, "timestamp": 1747000600},
     ]
     api = FakeAPI(leaderboard=[], activity_by_addr={"0xA": raw})
     storage = Storage(tmp_db_path)
@@ -33,15 +31,12 @@ def test_backtest_replays_trades_in_order(tmp_db_path):
 def test_backtest_respects_loss_limit(tmp_db_path):
     """Once limit breached, no new opens."""
     raw = [
-        {"market": "m1", "side": "YES", "type": "BUY", "size": 100,
-         "price": 0.5, "timestamp": 1747000000, "resolved": False,
-         "pnl_realized": None},
-        {"market": "m1", "side": "YES", "type": "SELL", "size": 100,
-         "price": 0.1, "timestamp": 1747000600, "resolved": False,
-         "pnl_realized": None},
-        {"market": "m2", "side": "YES", "type": "BUY", "size": 100,
-         "price": 0.5, "timestamp": 1747001200, "resolved": False,
-         "pnl_realized": None},
+        {"conditionId": "m1", "type": "TRADE", "side": "BUY", "outcome": "Yes",
+         "size": 100, "usdcSize": 50, "price": 0.5, "timestamp": 1747000000},
+        {"conditionId": "m1", "type": "TRADE", "side": "SELL", "outcome": "Yes",
+         "size": 100, "usdcSize": 10, "price": 0.1, "timestamp": 1747000600},
+        {"conditionId": "m2", "type": "TRADE", "side": "BUY", "outcome": "Yes",
+         "size": 100, "usdcSize": 50, "price": 0.5, "timestamp": 1747001200},
     ]
     api = FakeAPI(leaderboard=[], activity_by_addr={"0xA": raw})
     storage = Storage(tmp_db_path)

@@ -1,14 +1,9 @@
 [
-  {"market": "m1", "side": "YES", "type": "BUY", "size": 100,
-   "price": 0.4, "timestamp": 1735689600, "resolved": true,
-   "pnl_realized": 60},
-  {"market": "m2", "side": "NO", "type": "BUY", "size": 50,
-   "price": 0.3, "timestamp": 1736294400, "resolved": true,
-   "pnl_realized": -50},
-  {"market": "m3", "side": "YES", "type": "BUY", "size": 200,
-   "price": 0.5, "timestamp": 1736899200, "resolved": true,
-   "pnl_realized": 200},
-  {"market": "m9", "side": "YES", "type": "BUY", "size": 75,
-   "price": 0.45, "timestamp": 1747569300, "resolved": false,
-   "pnl_realized": null}
+  {"conditionId":"m1","type":"TRADE","side":"BUY","outcome":"Yes","size":100,"usdcSize":40,"price":0.4,"timestamp":1735689600},
+  {"conditionId":"m1","type":"TRADE","side":"SELL","outcome":"Yes","size":100,"usdcSize":60,"price":0.6,"timestamp":1735776000},
+  {"conditionId":"m2","type":"TRADE","side":"BUY","outcome":"No","size":100,"usdcSize":50,"price":0.5,"timestamp":1736294400},
+  {"conditionId":"m2","type":"TRADE","side":"SELL","outcome":"No","size":100,"usdcSize":30,"price":0.3,"timestamp":1736380800},
+  {"conditionId":"m3","type":"TRADE","side":"BUY","outcome":"Yes","size":100,"usdcSize":50,"price":0.5,"timestamp":1736899200},
+  {"conditionId":"m3","type":"REDEEM","side":"","outcome":"","size":100,"usdcSize":100,"price":0,"timestamp":1737000000},
+  {"conditionId":"m9","type":"TRADE","side":"BUY","outcome":"Yes","size":75,"usdcSize":33.75,"price":0.45,"timestamp":1747569300}
 ]

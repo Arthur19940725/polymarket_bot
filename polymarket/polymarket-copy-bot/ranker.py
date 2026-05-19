@@ -5,6 +5,7 @@ Selects top-N Polymarket traders by a weighted z-score of:
   - total_pnl
   - sharpe_like (mean / std of per-market ROI)
 """
+import logging
 import statistics
 import sys
 from dataclasses import dataclass
@@ -12,6 +13,7 @@ from typing import Optional
 from api_client import PolymarketAPI, Trade
 from clock import Clock
 from storage import Storage, TopTrader
+from pnl_reconstructor import reconstruct, aggregate
 from config import (
     RANK_WINDOW_DAYS, RANK_WEIGHTS, RANK_CANDIDATE_POOL_SIZE,
     MIN_RESOLVED_MARKETS, MIN_LIFETIME_VOLUME_USD, MIN_LAST_TRADE_DAYS,
@@ -63,39 +65,36 @@ class Ranker:
         return True
 
     def _compute_metrics(self, address: str) -> RawMetrics:
-        # Use full history (no since_ts); window-by-recency filter handled
-        # in _passes_filter via last_trade_ts.
-        trades: list[Trade] = self.api.user_activity(address)
-        resolved = [t for t in trades if t.resolved
-                    and t.pnl_realized is not None]
-        wins = sum(1 for t in resolved if t.pnl_realized > 0)
-        total_pnl = sum(t.pnl_realized for t in resolved)
-        rois: list[float] = []
-        for t in resolved:
-            cost = t.size * t.price
-            if cost > 0:
-                rois.append(t.pnl_realized / cost)
-        if len(rois) >= 2 and statistics.pstdev(rois) > 0:
-            sharpe = statistics.mean(rois) / statistics.pstdev(rois)
+        # Fetch full paginated activity, then reconstruct per-market PnL.
+        # If the api supports user_activity_all, use it; otherwise fall back.
+        fetcher = getattr(self.api, "user_activity_all", None)
+        if fetcher is not None:
+            trades: list[Trade] = fetcher(address)
         else:
-            sharpe = 0.0
-        lifetime_volume = sum(t.size * t.price for t in trades)
-        last_ts = max((t.timestamp for t in trades), default=0)
-        win_rate = (wins / len(resolved)) if resolved else 0.0
+            trades = self.api.user_activity(address)
+        market_pnls = reconstruct(trades)
+        agg = aggregate(market_pnls, trades)
         return RawMetrics(
             address=address,
-            resolved_count=len(resolved),
-            lifetime_volume=lifetime_volume,
-            last_trade_ts=last_ts,
-            win_rate=win_rate,
-            total_pnl=total_pnl,
-            sharpe_like=sharpe,
+            resolved_count=agg.resolved_count,
+            lifetime_volume=agg.lifetime_volume,
+            last_trade_ts=agg.last_trade_ts,
+            win_rate=agg.win_rate,
+            total_pnl=agg.total_pnl,
+            sharpe_like=agg.sharpe_like,
         )
 
     def compute_top_n(self, n: int = 10) -> list[TopTrader]:
+        import time as _time
         date_str = self.clock.now().date().isoformat()
         candidates = self.api.leaderboard(limit=RANK_CANDIDATE_POOL_SIZE)
-        metrics = [self._compute_metrics(c.address) for c in candidates]
+        metrics: list[RawMetrics] = []
+        for c in candidates:
+            try:
+                metrics.append(self._compute_metrics(c.address))
+            except Exception as exc:
+                logging.warning("metrics failed for %s: %s", c.address, exc)
+            _time.sleep(0.3)  # be polite to the API between candidates
         passing = [m for m in metrics if self._passes_filter(m)]
         if not passing:
             return []

@@ -8,9 +8,9 @@ from watcher import Event
 from executor import DryRunExecutor
 
 
-def _make_executor(tmp_db_path, prices=None, loss_limit=50.0):
+def _make_executor(tmp_db_path, loss_limit=50.0):
     s = Storage(tmp_db_path)
-    api = FakeAPI(leaderboard=[], activity_by_addr={}, prices=prices or {})
+    api = FakeAPI(leaderboard=[], activity_by_addr={})
     clock = FakeClock(datetime(2026, 5, 18, 12, 0, tzinfo=timezone.utc))
     gate = RiskGate(storage=s, clock=clock, daily_loss_limit=loss_limit)
     ex = DryRunExecutor(storage=s, api=api, clock=clock, gate=gate,
@@ -19,9 +19,7 @@ def _make_executor(tmp_db_path, prices=None, loss_limit=50.0):
 
 
 def test_open_event_creates_position(tmp_db_path):
-    ex, s, api = _make_executor(tmp_db_path,
-                                prices={("m1", "YES"): 0.5})
-    api.set_price("m1", "YES", 0.5)
+    ex, s, api = _make_executor(tmp_db_path)
     ex.handle_event(Event(kind="OPEN", source_trader="0xA",
                           market_id="m1", side="YES", price=0.5,
                           timestamp=1747569300))

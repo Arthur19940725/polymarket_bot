@@ -23,17 +23,24 @@ class _TimeFilteredAPI:
         self._inner = inner
         self._clock = clock
 
-    def leaderboard(self, limit: int = 500):
+    def leaderboard(self, limit: int = 50):
         return self._inner.leaderboard(limit=limit)
 
-    def user_activity(self, address: str,
-                      since_ts: Optional[int] = None) -> list[Trade]:
-        trades = self._inner.user_activity(address, since_ts=since_ts)
+    def user_activity(self, address: str, limit: int = 500,
+                      offset: int = 0) -> list[Trade]:
+        trades = self._inner.user_activity(address, limit=limit, offset=offset)
         cutoff = int(self._clock.now().timestamp())
         return [t for t in trades if t.timestamp <= cutoff]
 
-    def market_mid_price(self, market_id: str, side: str) -> float:
-        return self._inner.market_mid_price(market_id, side)
+    def user_activity_all(self, address: str, page_size: int = 500,
+                          max_records: int = 5000) -> list[Trade]:
+        trades = self._inner.user_activity_all(
+            address, page_size=page_size, max_records=max_records)
+        cutoff = int(self._clock.now().timestamp())
+        return [t for t in trades if t.timestamp <= cutoff]
+
+    def user_positions(self, address: str):
+        return self._inner.user_positions(address)
 
 
 class BacktestEngine:

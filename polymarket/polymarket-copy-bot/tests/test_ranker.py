@@ -69,7 +69,11 @@ def test_filter_passes_good_candidate():
 
 
 def test_compute_metrics_from_activity(fixtures_dir):
-    """alice has 3 resolved trades: +60, -50, +200 -> 2/3 win, 210 total"""
+    """alice has 3 closed markets:
+       m1 round-trip: +20
+       m2 round-trip: -20
+       m3 redeem:     +50
+       Total +50, 2/3 win, lifetime volume 230 (TRADE events only)."""
     api = FakeAPI(
         leaderboard=_load(fixtures_dir, "leaderboard.json"),
         activity_by_addr={
@@ -81,7 +85,8 @@ def test_compute_metrics_from_activity(fixtures_dir):
     m = r._compute_metrics("0xAlice")
     assert m.resolved_count == 3
     assert m.win_rate == pytest.approx(2 / 3)
-    assert m.total_pnl == 210
+    assert m.total_pnl == 50
+    assert m.lifetime_volume == 230
 
 
 def test_rank_end_to_end(fixtures_dir, monkeypatch):
