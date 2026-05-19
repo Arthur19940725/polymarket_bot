@@ -1,8 +1,16 @@
 """Tests for the daily-loss risk gate."""
 from datetime import datetime, timezone
 from clock import FakeClock
-from storage import Storage
+from storage import Storage, Position
 from risk import RiskGate
+
+
+def _open(s: Storage, addr: str, market: str, side: str = "Yes") -> int:
+    return s.insert_position(Position(
+        source_trader=addr, market_id=market, side=side,
+        size_usd=5.0, opened_at="2026-05-18T00:00:00+00:00",
+        status="OPEN",
+    ))
 
 
 def test_allows_open_when_below_limit(tmp_db_path):
@@ -60,3 +68,47 @@ def test_day_rollover_resets_check(tmp_db_path):
     g = RiskGate(storage=s, clock=FakeClock(
         datetime(2026, 5, 19, tzinfo=timezone.utc)), daily_loss_limit=50)
     assert g.allow_open() is True
+
+
+def test_blocks_open_at_max_open_positions(tmp_db_path):
+    """G3: cap on simultaneous OPEN positions across all source_traders."""
+    s = Storage(tmp_db_path)
+    for i in range(3):
+        _open(s, "0xA", f"m{i}")
+    g = RiskGate(storage=s, clock=FakeClock(
+        datetime(2026, 5, 18, tzinfo=timezone.utc)),
+        daily_loss_limit=1000, max_open_positions=3)
+    assert g.allow_open() is False
+
+
+def test_allows_open_below_max_positions(tmp_db_path):
+    s = Storage(tmp_db_path)
+    for i in range(2):
+        _open(s, "0xA", f"m{i}")
+    g = RiskGate(storage=s, clock=FakeClock(
+        datetime(2026, 5, 18, tzinfo=timezone.utc)),
+        daily_loss_limit=1000, max_open_positions=3)
+    assert g.allow_open() is True
+
+
+def test_closing_a_position_reopens_room(tmp_db_path):
+    """Once a position is closed, the slot frees up."""
+    s = Storage(tmp_db_path)
+    pids = [_open(s, "0xA", f"m{i}") for i in range(3)]
+    g = RiskGate(storage=s, clock=FakeClock(
+        datetime(2026, 5, 18, tzinfo=timezone.utc)),
+        daily_loss_limit=1000, max_open_positions=3)
+    assert g.allow_open() is False
+    s.close_position(pids[0], closed_at="2026-05-18T01:00:00+00:00",
+                     realized_pnl=0, new_status="MIRRORED_CLOSE")
+    assert g.allow_open() is True
+
+
+def test_max_positions_does_not_block_close(tmp_db_path):
+    s = Storage(tmp_db_path)
+    for i in range(5):
+        _open(s, "0xA", f"m{i}")
+    g = RiskGate(storage=s, clock=FakeClock(
+        datetime(2026, 5, 18, tzinfo=timezone.utc)),
+        daily_loss_limit=1000, max_open_positions=3)
+    assert g.allow_close() is True

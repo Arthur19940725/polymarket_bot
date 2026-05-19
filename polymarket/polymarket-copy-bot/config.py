@@ -22,6 +22,10 @@ SIGNATURE_TYPE = int(os.getenv("SIGNATURE_TYPE", "1"))
 COPY_AMOUNT_USD = float(os.getenv("COPY_AMOUNT_USD", "5"))
 DAILY_LOSS_LIMIT = float(os.getenv("DAILY_LOSS_LIMIT", "50"))
 
+# G3 risk control: cap on simultaneous OPEN positions (0 or empty = disabled)
+_max_open = os.getenv("MAX_OPEN_POSITIONS", "20").strip()
+MAX_OPEN_POSITIONS = int(_max_open) if _max_open and int(_max_open) > 0 else None
+
 # Ranker
 RANK_WINDOW_DAYS = int(os.getenv("RANK_WINDOW_DAYS", "90"))
 RANK_WEIGHTS = tuple(float(w) for w in os.getenv("RANK_WEIGHTS", "0.3,0.3,0.4").split(","))

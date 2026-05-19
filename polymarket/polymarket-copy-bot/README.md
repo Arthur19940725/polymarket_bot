@@ -34,17 +34,17 @@ python main.py backtest --days 60
 
 ## 风控说明（重要）
 
-本机器人**只有一个硬风控**：`DAILY_LOSS_LIMIT`（日已实现亏损上限）。
+两道硬风控（任一触发都会拒绝**新开仓**，但**平仓始终允许**——保留止损能力）：
 
-**未启用的风控**（设计上的取舍）：
-- **最大并发持仓数**：理论上 10 个 top trader 同时疯狂开仓可能堆出几十个仓位
-- **单交易员最大敞口**：某个 top trader 一天连开 30 单，你按固定 $5 跟会有 $150 暴露
+1. `DAILY_LOSS_LIMIT` —— 日已实现亏损上限（事后熔断）
+2. `MAX_OPEN_POSITIONS` —— **G3** 同时持有的 OPEN 仓位总数上限（事前限频）
 
-这些故意省略，以保持配置最简。`DAILY_LOSS_LIMIT` 作为事后熔断兜底——一旦今日已实现亏损达到上限，**新开仓被拒绝，但平仓继续允许**（让你能止损）。
+G3 是基于第一次真实联调发现加入的：3 个 top trader 在 3 分钟内触发了 34 个 OPEN 事件。如果 `COPY_AMOUNT_USD=5`、`MAX_OPEN_POSITIONS=20`，一旦达到 20 个仓位，新单被拒绝直到有仓位 resolve / 被 source 平仓腾出名额。
 
-代价：可能在熔断触发前已亏满当日上限。如果实盘运行中发现频繁触发熔断，请考虑在 `risk.py` 中加入：
-- `MAX_OPEN_POSITIONS` 检查
-- 单 source_trader 累计敞口检查
+**仍未启用的风控**（按需打开）：
+- **单交易员累计敞口上限（G4）**：未实现。如果某个 top trader 一天疯狂开仓，G3 会把总数封顶，但敞口仍可能集中在他一人身上。
+
+把 `MAX_OPEN_POSITIONS=0`（或留空）可禁用 G3。
 
 ## 配置参考
 
@@ -54,6 +54,7 @@ python main.py backtest --days 60
 |------|------|------|
 | `COPY_AMOUNT_USD` | 5 | 每笔跟单的固定美元金额 |
 | `DAILY_LOSS_LIMIT` | 50 | 日已实现亏损上限（熔断阈值） |
+| `MAX_OPEN_POSITIONS` | 20 | G3：同时持有的 OPEN 仓位总数上限（0 禁用） |
 | `RANK_WEIGHTS` | 0.3,0.3,0.4 | win_rate / total_pnl / sharpe 权重 |
 | `RANK_WINDOW_DAYS` | 90 | 评分窗口 |
 | `POLL_INTERVAL_SEC` | 30 | 检测新单延迟 |
