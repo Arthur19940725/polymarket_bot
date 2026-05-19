@@ -1,0 +1,4 @@
+[
+  {"conditionId":"m4","type":"TRADE","side":"BUY","outcome":"Yes","size":50,"usdcSize":30,"price":0.6,"timestamp":1735689600},
+  {"conditionId":"m4","type":"TRADE","side":"SELL","outcome":"Yes","size":50,"usdcSize":20,"price":0.4,"timestamp":1735776000}
+]

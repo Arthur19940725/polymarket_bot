@@ -1,0 +1,5 @@
+[
+  {"proxyWallet": "0xAlice", "amount": 8000, "pseudonym": "alice"},
+  {"proxyWallet": "0xBob", "amount": 5000, "pseudonym": "bob"},
+  {"proxyWallet": "0xCharlie", "amount": 100, "pseudonym": "charlie"}
+]
