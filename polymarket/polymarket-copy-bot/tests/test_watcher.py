@@ -84,8 +84,41 @@ def test_close_ignored_when_trader_not_in_top10():
     assert events == []  # CLOSE suppressed
 
 
-def test_redeem_and_reward_events_skipped():
-    """REDEEM/MERGE/REWARD should NOT generate watcher events."""
+def test_reward_events_skipped():
+    """REWARD must not generate any event."""
+    api = FakeAPI(leaderboard=[], activity_by_addr={"0xA": []})
+    w = Watcher(api=api, clock=FakeClock(
+        datetime(2026, 5, 18, tzinfo=timezone.utc)))
+    w.poll(top_addresses=["0xA"])
+    api.set_activity("0xA", [
+        {"conditionId": "mY", "type": "REWARD", "side": "", "outcome": "",
+         "size": 50, "usdcSize": 5, "price": 0, "timestamp": 1747569200},
+    ])
+    events = w.poll(top_addresses=["0xA"])
+    assert events == []
+
+
+def test_redeem_emits_resolve_event():
+    """REDEEM by source -> watcher emits RESOLVE so executor can mark
+    matching positions as RESOLVED."""
+    api = FakeAPI(leaderboard=[], activity_by_addr={"0xA": []})
+    w = Watcher(api=api, clock=FakeClock(
+        datetime(2026, 5, 18, tzinfo=timezone.utc)))
+    w.poll(top_addresses=["0xA"])  # baseline
+    api.set_activity("0xA", [
+        {"conditionId": "mX", "type": "REDEEM", "side": "", "outcome": "",
+         "size": 100, "usdcSize": 100, "price": 0, "timestamp": 1747569100},
+    ])
+    events = w.poll(top_addresses=["0xA"])
+    assert len(events) == 1
+    assert events[0].kind == "RESOLVE"
+    assert events[0].source_trader == "0xA"
+    assert events[0].market_id == "mX"
+
+
+def test_resolve_emitted_even_after_drop_from_top10():
+    """RESOLVE is bookkeeping; it should fire regardless of E1 (unlike CLOSE)
+    because we MUST free our G4 slot when the market actually resolved."""
     api = FakeAPI(leaderboard=[], activity_by_addr={"0xA": []})
     w = Watcher(api=api, clock=FakeClock(
         datetime(2026, 5, 18, tzinfo=timezone.utc)))
@@ -93,8 +126,7 @@ def test_redeem_and_reward_events_skipped():
     api.set_activity("0xA", [
         {"conditionId": "mX", "type": "REDEEM", "side": "", "outcome": "",
          "size": 100, "usdcSize": 100, "price": 0, "timestamp": 1747569100},
-        {"conditionId": "mY", "type": "REWARD", "side": "", "outcome": "",
-         "size": 50, "usdcSize": 5, "price": 0, "timestamp": 1747569200},
     ])
-    events = w.poll(top_addresses=["0xA"])
-    assert events == []
+    events = w.poll(top_addresses=[])  # dropped from top 10
+    assert len(events) == 1
+    assert events[0].kind == "RESOLVE"

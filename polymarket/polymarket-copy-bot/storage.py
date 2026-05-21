@@ -170,6 +170,19 @@ class Storage:
             ).fetchone()
             return Position(**dict(row)) if row else None
 
+    def list_open_positions_for_market(self, source_trader: str,
+                                       market_id: str) -> list[Position]:
+        """All OPEN positions for (source, market) regardless of outcome.
+        Used by RESOLVE handling: REDEEM event has no outcome, so we need
+        to find every position of ours that this market resolution affects."""
+        with self._conn() as c:
+            rows = c.execute(
+                "SELECT * FROM our_positions WHERE source_trader=? "
+                "AND market_id=? AND status='OPEN'",
+                (source_trader, market_id),
+            ).fetchall()
+            return [Position(**dict(r)) for r in rows]
+
     def get_position_by_id(self, pid: int) -> Optional[Position]:
         with self._conn() as c:
             row = c.execute(

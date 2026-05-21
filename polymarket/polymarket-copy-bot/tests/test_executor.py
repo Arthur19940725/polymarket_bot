@@ -1,4 +1,5 @@
 """Tests for the executor (DryRunExecutor)."""
+import pytest
 from datetime import datetime, timezone
 from api_client import FakeAPI
 from clock import FakeClock
@@ -87,3 +88,69 @@ def test_close_without_matching_position_is_noop(tmp_db_path):
                           market_id="m999", side="YES", price=0.5,
                           timestamp=1747569300))
     assert s.list_open_positions() == []
+
+
+def test_resolve_event_marks_position_resolved_with_win_pnl(tmp_db_path):
+    """When source REDEEMs, our matching position(s) flip to RESOLVED.
+    Assumption: source only REDEEMs the winning outcome, and we mirrored
+    their first BUY -> we also win -> realized_pnl = (1.0 - open_price) * shares."""
+    ex, s, _ = _make_executor(tmp_db_path)
+    # OPEN a position via the OPEN path first
+    ex.handle_event(Event(kind="OPEN", source_trader="0xA",
+                          market_id="m1", side="Yes", price=0.4,
+                          timestamp=1747569000))
+    open_pos_before = s.list_open_positions()
+    assert len(open_pos_before) == 1
+    pid = open_pos_before[0].id
+    # Source REDEEMs market
+    ex.handle_event(Event(kind="RESOLVE", source_trader="0xA",
+                          market_id="m1", side="",
+                          price=0.0, timestamp=1747570000))
+    # After RESOLVE, no OPEN positions for that market
+    assert s.list_open_positions() == []
+    closed = s.get_position_by_id(pid)
+    assert closed.status == "RESOLVED"
+    # size_usd=5, open_price=0.4 -> shares=12.5 -> win pnl = (1-0.4)*12.5 = 7.5
+    assert closed.realized_pnl == pytest.approx(7.5)
+
+
+def test_resolve_without_matching_position_is_noop(tmp_db_path):
+    ex, s, _ = _make_executor(tmp_db_path)
+    ex.handle_event(Event(kind="RESOLVE", source_trader="0xZ",
+                          market_id="m999", side="",
+                          price=0.0, timestamp=1747569300))
+    assert s.list_open_positions() == []
+
+
+def test_resolve_frees_g4_slot(tmp_db_path):
+    """After RESOLVE, the source_trader can OPEN a new position even if
+    they were previously at the G4 cap."""
+    from risk import RiskGate
+    from clock import FakeClock
+    from storage import Storage
+    s = Storage(tmp_db_path)
+    api = FakeAPI(leaderboard=[], activity_by_addr={})
+    clock = FakeClock(datetime(2026, 5, 18, 12, 0, tzinfo=timezone.utc))
+    gate = RiskGate(storage=s, clock=clock, daily_loss_limit=1000,
+                    max_open_positions=20, max_open_per_trader=1)
+    ex = DryRunExecutor(storage=s, api=api, clock=clock, gate=gate,
+                        copy_amount_usd=5.0, min_order_usd=1.0)
+    ex.handle_event(Event(kind="OPEN", source_trader="0xA",
+                          market_id="m1", side="Yes", price=0.4,
+                          timestamp=1747569000))
+    # Cap is 1; trying second OPEN must be blocked
+    ex.handle_event(Event(kind="OPEN", source_trader="0xA",
+                          market_id="m2", side="Yes", price=0.4,
+                          timestamp=1747569100))
+    assert len(s.list_open_positions()) == 1
+    # RESOLVE frees the slot
+    ex.handle_event(Event(kind="RESOLVE", source_trader="0xA",
+                          market_id="m1", side="",
+                          price=0.0, timestamp=1747569200))
+    # Now another OPEN can land
+    ex.handle_event(Event(kind="OPEN", source_trader="0xA",
+                          market_id="m3", side="Yes", price=0.4,
+                          timestamp=1747569300))
+    assert len(s.list_open_positions()) == 1
+    open_now = s.list_open_positions()[0]
+    assert open_now.market_id == "m3"

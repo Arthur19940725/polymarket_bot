@@ -3,8 +3,13 @@
 Each call to `poll()`:
   1. Fetches current activity for each top-10 address
   2. Diffs against the address's previous activity (by trade fingerprint)
-  3. Emits OPEN/CLOSE events for new TRADE events (skips REDEEM/MERGE/REWARD)
-  4. Suppresses CLOSE events for addresses no longer in top 10 (spec §3 E1)
+  3. Emits events for new activity:
+       - TRADE/BUY  -> OPEN    (only if source still in top 10; spec §3 E1)
+       - TRADE/SELL -> CLOSE   (only if source still in top 10; spec §3 E1)
+       - REDEEM     -> RESOLVE (always; we MUST free the G4 slot when the
+                                market actually resolved, even if source
+                                dropped out of top 10)
+       - MERGE / REWARD        -> skipped
 """
 from dataclasses import dataclass
 from api_client import PolymarketAPI, Trade
@@ -13,11 +18,11 @@ from clock import Clock
 
 @dataclass(frozen=True)
 class Event:
-    kind: str           # 'OPEN' | 'CLOSE'
+    kind: str           # 'OPEN' | 'CLOSE' | 'RESOLVE'
     source_trader: str
     market_id: str
-    side: str           # outcome string: 'Yes' / 'No' / candidate name
-    price: float
+    side: str           # outcome string for OPEN/CLOSE; '' for RESOLVE
+    price: float        # 0.0 for RESOLVE
     timestamp: int
 
 
@@ -48,8 +53,16 @@ class Watcher:
             for t in current:
                 if _fingerprint(t) not in new_fps:
                     continue
+                if t.event_type == "REDEEM":
+                    # RESOLVE always fires (bookkeeping), even if dropped from top 10
+                    events.append(Event(
+                        kind="RESOLVE", source_trader=addr,
+                        market_id=t.market_id, side="",
+                        price=0.0, timestamp=t.timestamp,
+                    ))
+                    continue
                 if t.event_type != "TRADE":
-                    continue  # skip REDEEM / MERGE / REWARD
+                    continue  # skip MERGE / REWARD
                 if addr not in top_set:
                     continue  # E1 rule
                 if t.action == "BUY":
