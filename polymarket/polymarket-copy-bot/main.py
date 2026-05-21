@@ -4,6 +4,7 @@ import logging
 import os
 import sys
 from datetime import datetime, timezone
+from typing import Optional
 from api_client import RequestsPolymarketAPI
 from clock import RealClock
 from storage import Storage
@@ -103,14 +104,29 @@ def cmd_watch(args) -> int:
         logging.info("system sleep prevented (Windows ES_SYSTEM_REQUIRED)")
 
     consecutive_poll_failures = 0
+    last_auto_rank_fail_day: Optional[str] = None
     while True:
         today = clock.now().date().isoformat()
         top = storage.load_top_10(today)
         if not top:
-            logging.warning("No top_10 for %s — run `main.py rank` first",
-                            today)
-            clock.sleep(config.POLL_INTERVAL_SEC)
-            continue
+            # Day rollover (or first run): auto-trigger today's rank so the
+            # watcher doesn't sit idle until a human runs `main.py rank`.
+            # If rank just failed for this day, don't hammer the API every
+            # 30s -- back off until tomorrow.
+            if last_auto_rank_fail_day != today:
+                logging.info("No top_10 for %s; auto-ranking now", today)
+                try:
+                    ranker = Ranker(api=api, clock=clock, storage=storage)
+                    top = ranker.rank_and_persist(n=10)
+                    logging.info("auto-rank produced %d traders", len(top))
+                except Exception:
+                    logging.exception("auto-rank failed; waiting until next day")
+                    last_auto_rank_fail_day = today
+                    clock.sleep(config.POLL_INTERVAL_SEC)
+                    continue
+            if not top:
+                clock.sleep(config.POLL_INTERVAL_SEC)
+                continue
         top_addrs = [t.trader_addr for t in top]
         try:
             events = watcher.poll(top_addrs)

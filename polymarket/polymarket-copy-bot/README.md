@@ -74,6 +74,8 @@ python -m pytest -v
 
 - 回测**不模拟**：滑点、挂单未成交、网络延迟、Polymarket 临时下架市场。实盘 PnL 大概率低于回测。
 - 同一 source_trader 对同一市场连续加仓时，本机器人**只跟第一次**（避免你的固定金额策略和对方加仓策略冲突）。
+- **REDEEM 状态推断**：当 source_trader 在某个市场触发 REDEEM 事件时，bot 假设"source 只 REDEEM 赢的那边 + 我们镜像了相同方向 → 我们也赢"，将持仓置为 RESOLVED + PnL = `(1.0 - 开仓价) × 份数`。极少数情况（source 同时持 Yes+No 后 MERGE 而非 REDEEM）不在此覆盖。
+- **MERGE 事件未处理**：source 用 MERGE 平仓的极少数场景，bot 不感知。
 
 ## Polymarket API 真实情况（联调记录）
 
@@ -93,11 +95,13 @@ python -m pytest -v
 ```
 ranker.py             -> 每日生成 top_10 名单（写入 SQLite）
 pnl_reconstructor.py  -> 从 /activity 事件流回放推导每市场 PnL
-watcher.py            -> 30s 轮询 top_10 的活动，diff 出 OPEN/CLOSE 事件
-risk.py               -> 日亏损熔断（事件 -> Executor 前的最后一道闸）
+watcher.py            -> 30s 轮询 top_10 的活动，diff 出 OPEN/CLOSE/RESOLVE 事件
+risk.py               -> 日亏损熔断 + G3/G4 并发上限（事件 -> Executor 前的最后一道闸）
 executor.py           -> DryRun 模式仅写日志；Live 模式调用 CLOB API
 backtest.py           -> 用历史数据回放 watcher+executor，验证策略
 main.py               -> CLI：rank / watch --dry-run|--live / backtest --days N
+                         watch 自动跨日：UTC 凌晨后无 top_10 时触发 rank
+tools/compare_days.py -> 跨日 rank A/B 对比工具
 ```
 
 ## 与 polymarket-arb-bot 的关系
