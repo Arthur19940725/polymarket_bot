@@ -24,6 +24,8 @@ class LeaderboardEntry:
 class Trade:
     """One Polymarket activity event. Fields mirror data-api /activity."""
     market_id: str       # conditionId
+    token_id: str        # asset field -- the per-outcome CTF token ID
+                         # (REQUIRED for CLOB orders; conditionId alone is not enough)
     event_type: str      # TRADE | REDEEM | MERGE | REWARD
     action: str          # BUY | SELL | '' (only set when event_type=TRADE)
     outcome: str         # 'Yes' | 'No' | candidate name | ''
@@ -64,6 +66,7 @@ def _entry_from_raw(r: dict) -> LeaderboardEntry:
 def _trade_from_raw(r: dict) -> Trade:
     return Trade(
         market_id=str(r.get("conditionId", "")),
+        token_id=str(r.get("asset", "") or ""),
         event_type=str(r.get("type", "")),
         action=str(r.get("side", "") or ""),
         outcome=str(r.get("outcome", "") or ""),

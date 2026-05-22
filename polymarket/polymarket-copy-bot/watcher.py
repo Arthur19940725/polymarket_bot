@@ -24,6 +24,8 @@ class Event:
     side: str           # outcome string for OPEN/CLOSE; '' for RESOLVE
     price: float        # 0.0 for RESOLVE
     timestamp: int
+    token_id: str = ""  # CTF token_id (= /activity 'asset' field). Required
+                        # for LIVE orders; empty/unused for RESOLVE.
 
 
 def _fingerprint(t: Trade) -> tuple:
@@ -70,12 +72,14 @@ class Watcher:
                         kind="OPEN", source_trader=addr,
                         market_id=t.market_id, side=t.outcome,
                         price=t.price, timestamp=t.timestamp,
+                        token_id=t.token_id,
                     ))
                 elif t.action == "SELL":
                     events.append(Event(
                         kind="CLOSE", source_trader=addr,
                         market_id=t.market_id, side=t.outcome,
                         price=t.price, timestamp=t.timestamp,
+                        token_id=t.token_id,
                     ))
             self._seen[addr] = current_fps
         return events

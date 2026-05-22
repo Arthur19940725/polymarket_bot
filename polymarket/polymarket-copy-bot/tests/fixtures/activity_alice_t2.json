@@ -1,9 +1,9 @@
 [
-  {"conditionId":"m1","type":"TRADE","side":"BUY","outcome":"Yes","size":100,"usdcSize":40,"price":0.4,"timestamp":1735689600},
-  {"conditionId":"m1","type":"TRADE","side":"SELL","outcome":"Yes","size":100,"usdcSize":60,"price":0.6,"timestamp":1735776000},
-  {"conditionId":"m2","type":"TRADE","side":"BUY","outcome":"No","size":100,"usdcSize":50,"price":0.5,"timestamp":1736294400},
-  {"conditionId":"m2","type":"TRADE","side":"SELL","outcome":"No","size":100,"usdcSize":30,"price":0.3,"timestamp":1736380800},
-  {"conditionId":"m3","type":"TRADE","side":"BUY","outcome":"Yes","size":100,"usdcSize":50,"price":0.5,"timestamp":1736899200},
-  {"conditionId":"m3","type":"REDEEM","side":"","outcome":"","size":100,"usdcSize":100,"price":0,"timestamp":1737000000},
-  {"conditionId":"m9","type":"TRADE","side":"BUY","outcome":"Yes","size":75,"usdcSize":33.75,"price":0.45,"timestamp":1747569300}
+  {"conditionId":"m1","asset":"asset_m1_yes","type":"TRADE","side":"BUY","outcome":"Yes","size":100,"usdcSize":40,"price":0.4,"timestamp":1735689600},
+  {"conditionId":"m1","asset":"asset_m1_yes","type":"TRADE","side":"SELL","outcome":"Yes","size":100,"usdcSize":60,"price":0.6,"timestamp":1735776000},
+  {"conditionId":"m2","asset":"asset_m2_no","type":"TRADE","side":"BUY","outcome":"No","size":100,"usdcSize":50,"price":0.5,"timestamp":1736294400},
+  {"conditionId":"m2","asset":"asset_m2_no","type":"TRADE","side":"SELL","outcome":"No","size":100,"usdcSize":30,"price":0.3,"timestamp":1736380800},
+  {"conditionId":"m3","asset":"asset_m3_yes","type":"TRADE","side":"BUY","outcome":"Yes","size":100,"usdcSize":50,"price":0.5,"timestamp":1736899200},
+  {"conditionId":"m3","asset":"","type":"REDEEM","side":"","outcome":"","size":100,"usdcSize":100,"price":0,"timestamp":1737000000},
+  {"conditionId":"m9","asset":"asset_m9_yes","type":"TRADE","side":"BUY","outcome":"Yes","size":75,"usdcSize":33.75,"price":0.45,"timestamp":1747569300}
 ]

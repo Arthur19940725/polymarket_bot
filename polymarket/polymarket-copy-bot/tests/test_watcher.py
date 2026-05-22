@@ -41,6 +41,9 @@ def test_second_poll_detects_new_open(fixtures_dir):
     assert e.market_id == "m9"
     assert e.side == "Yes"
     assert e.price == 0.45
+    # CRITICAL for LIVE: token_id must flow through to the Event so
+    # LiveExecutor can place a CLOB order with the correct per-outcome ID.
+    assert e.token_id == "asset_m9_yes"
 
 
 def test_detects_close_when_position_disappears():
