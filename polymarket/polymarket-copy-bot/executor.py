@@ -7,14 +7,50 @@ Both share the same interface (handle_event) so the watcher loop is
 mode-agnostic.
 """
 import logging
+from datetime import datetime, timezone
 from typing import Optional
 from api_client import PolymarketAPI
 from clock import Clock
-from storage import Storage, Position, TradeRow
+from storage import Storage, Position, TradeRow, TopTrader
 from risk import RiskGate
 from watcher import Event
 
 logger = logging.getLogger(__name__)
+
+_POLYMARKET_BASE = "https://polymarket.com/event/"
+_SIGNAL_BAR = "=" * 60
+
+
+def format_signal(event: Event, trader_meta: Optional[TopTrader],
+                  copy_amount_usd: float) -> str:
+    """Render a human-actionable signal block for stdout/logs.
+
+    The operator reads this and decides whether to manually place the trade
+    on polymarket.com (used in regions where the bot cannot execute LIVE)."""
+    ts = datetime.fromtimestamp(event.timestamp, tz=timezone.utc).strftime(
+        "%Y-%m-%d %H:%M:%S UTC") if event.timestamp else "now"
+    url = _POLYMARKET_BASE + event.slug if event.slug else "(no slug)"
+    title = event.title or "(unknown market)"
+    short = event.source_trader[:12] + "..."
+    if trader_meta is not None:
+        meta = (f"rank #{trader_meta.rank}  "
+                f"win {trader_meta.win_rate * 100:.0f}%  "
+                f"PnL ${trader_meta.total_pnl:,.0f}")
+    else:
+        meta = "(no rank meta)"
+    shares = (copy_amount_usd / event.price) if event.price > 0 else 0
+    action_word = "BUY" if event.kind == "OPEN" else "SELL"
+    lines = [
+        _SIGNAL_BAR,
+        f">>> SIGNAL  {ts}",
+        f"Trader  {short}  ({meta})",
+        f"Market  {title}",
+        f"URL     {url}",
+        f"Action  {action_word}  {event.side}  @ ${event.price:.4f}",
+        f"Size    ${copy_amount_usd:.2f}  ~  {shares:.2f} shares",
+        _SIGNAL_BAR,
+    ]
+    return "\n".join(lines)
 
 
 class DryRunExecutor:
@@ -52,6 +88,14 @@ class DryRunExecutor:
             logger.info("[skip] already holding %s/%s/%s",
                         e.source_trader, e.market_id, e.side)
             return
+        # Emit operator signal *before* writing storage. The signal is the
+        # primary deliverable in regions where LIVE is geoblocked.
+        date_str = self.clock.now().date().isoformat()
+        top = {t.trader_addr: t for t in self.storage.load_top_10(date_str)}
+        meta = top.get(e.source_trader)
+        logger.info("\n%s",
+                    format_signal(e, meta, self.copy_amount_usd))
+
         size_usd = max(self.copy_amount_usd, self.min_order_usd)
         shares = size_usd / e.price if e.price > 0 else 0
         pid = self.storage.insert_position(Position(

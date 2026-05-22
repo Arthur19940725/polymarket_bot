@@ -3,10 +3,10 @@ import pytest
 from datetime import datetime, timezone
 from api_client import FakeAPI
 from clock import FakeClock
-from storage import Storage, Position
+from storage import Storage, Position, TopTrader
 from risk import RiskGate
 from watcher import Event
-from executor import DryRunExecutor
+from executor import DryRunExecutor, format_signal
 
 
 def _make_executor(tmp_db_path, loss_limit=50.0):
@@ -88,6 +88,54 @@ def test_close_without_matching_position_is_noop(tmp_db_path):
                           market_id="m999", side="YES", price=0.5,
                           timestamp=1747569300))
     assert s.list_open_positions() == []
+
+
+def test_format_signal_includes_url_and_trader_meta():
+    """Signal output must be unambiguously actionable: market URL,
+    trader rank/score, and the exact action to take."""
+    e = Event(kind="OPEN", source_trader="0x6a72f61820abc",
+              market_id="0xMARKET", side="Yes", price=0.4,
+              timestamp=1779100000,
+              token_id="tok_x", slug="atp-test-2026", title="ATP Test Match")
+    meta = TopTrader(date="2026-05-22", trader_addr="0x6a72f61820abc",
+                     score=1.025, win_rate=0.7941, total_pnl=640112.10,
+                     sharpe_like=0.5, rank=1)
+    s = format_signal(e, meta, copy_amount_usd=1.0)
+    assert "SIGNAL" in s
+    assert "polymarket.com/event/atp-test-2026" in s
+    assert "ATP Test Match" in s
+    assert "BUY" in s and "Yes" in s
+    assert "rank #1" in s
+    assert "79" in s  # win rate %
+    assert "$1.00" in s
+    assert "0.4" in s.replace("0.40", "0.4")  # price
+
+
+def test_signal_emitted_on_open_event(tmp_db_path, capsys, caplog):
+    """The DryRun OPEN flow must print the formatted signal to logs
+    so the operator sees a clear action prompt."""
+    import logging
+    s = Storage(tmp_db_path)
+    # Seed top_10 so the signal can include trader meta
+    s.save_top_10("2026-05-22", [TopTrader(
+        date="2026-05-22", trader_addr="0xA", score=0.8,
+        win_rate=0.75, total_pnl=100000.0, sharpe_like=0.4, rank=1,
+    )])
+    api = FakeAPI(leaderboard=[], activity_by_addr={})
+    clock = FakeClock(datetime(2026, 5, 22, 12, 0, tzinfo=timezone.utc))
+    gate = RiskGate(storage=s, clock=clock, daily_loss_limit=50)
+    ex = DryRunExecutor(storage=s, api=api, clock=clock, gate=gate,
+                        copy_amount_usd=1.0, min_order_usd=1.0)
+    with caplog.at_level(logging.INFO):
+        ex.handle_event(Event(
+            kind="OPEN", source_trader="0xA",
+            market_id="0xMARKET", side="Yes", price=0.4,
+            timestamp=1779100000,
+            slug="my-market-2026", title="My Market",
+        ))
+    text = caplog.text
+    assert "SIGNAL" in text
+    assert "polymarket.com/event/my-market-2026" in text
 
 
 def test_resolve_event_marks_position_resolved_with_win_pnl(tmp_db_path):

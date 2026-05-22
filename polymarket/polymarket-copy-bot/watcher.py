@@ -26,6 +26,8 @@ class Event:
     timestamp: int
     token_id: str = ""  # CTF token_id (= /activity 'asset' field). Required
                         # for LIVE orders; empty/unused for RESOLVE.
+    slug: str = ""      # market slug for human signals; URL = /event/<slug>
+    title: str = ""     # human-readable market title
 
 
 def _fingerprint(t: Trade) -> tuple:
@@ -73,6 +75,7 @@ class Watcher:
                         market_id=t.market_id, side=t.outcome,
                         price=t.price, timestamp=t.timestamp,
                         token_id=t.token_id,
+                        slug=t.slug, title=t.title,
                     ))
                 elif t.action == "SELL":
                     events.append(Event(
@@ -80,6 +83,7 @@ class Watcher:
                         market_id=t.market_id, side=t.outcome,
                         price=t.price, timestamp=t.timestamp,
                         token_id=t.token_id,
+                        slug=t.slug, title=t.title,
                     ))
             self._seen[addr] = current_fps
         return events
