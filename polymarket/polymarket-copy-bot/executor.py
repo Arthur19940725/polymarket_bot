@@ -143,13 +143,17 @@ class LiveExecutor(DryRunExecutor):
             e.source_trader, e.market_id, e.side)
         if existing is not None:
             return
+        if not e.token_id:
+            logger.warning("live OPEN skipped: no token_id on event "
+                           "(source=%s market=%s)", e.source_trader, e.market_id)
+            return
         size_usd = max(self.copy_amount_usd, self.min_order_usd)
         shares = size_usd / e.price if e.price > 0 else 0
         try:
             from py_clob_client.clob_types import OrderArgs
             from py_clob_client.order_builder.constants import BUY
             order = self.clob.create_and_post_order(OrderArgs(
-                token_id=e.market_id,
+                token_id=e.token_id,
                 price=round(e.price, 2),
                 size=round(shares, 2),
                 side=BUY,
@@ -181,11 +185,15 @@ class LiveExecutor(DryRunExecutor):
             return
         open_price = opens[0].price
         shares = pos.size_usd / open_price
+        if not e.token_id:
+            logger.warning("live CLOSE skipped: no token_id on event "
+                           "(source=%s market=%s)", e.source_trader, e.market_id)
+            return
         try:
             from py_clob_client.clob_types import OrderArgs
             from py_clob_client.order_builder.constants import SELL
             order = self.clob.create_and_post_order(OrderArgs(
-                token_id=e.market_id, price=round(e.price, 2),
+                token_id=e.token_id, price=round(e.price, 2),
                 size=round(shares, 2), side=SELL,
             ))
         except Exception as exc:

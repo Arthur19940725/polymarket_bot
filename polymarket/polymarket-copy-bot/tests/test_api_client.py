@@ -56,3 +56,32 @@ def test_fake_api_activity_pagination(fixtures_dir):
 def test_fake_api_activity_unknown_user_empty():
     api = FakeAPI(leaderboard=[], activity_by_addr={})
     assert api.user_activity("0xNobody") == []
+
+
+def test_trade_carries_token_id_from_asset_field():
+    """LIVE bug: CLOB orders need per-outcome token_id, not conditionId.
+    The /activity event has it in the 'asset' field - we must keep it."""
+    api = FakeAPI(
+        leaderboard=[],
+        activity_by_addr={"0xA": [
+            {"conditionId": "0xMARKET", "asset": "1021106301963985907339",
+             "type": "TRADE", "side": "BUY", "outcome": "Yes",
+             "size": 100, "usdcSize": 40, "price": 0.4, "timestamp": 1},
+        ]},
+    )
+    trades = api.user_activity("0xA")
+    assert trades[0].token_id == "1021106301963985907339"
+
+
+def test_trade_token_id_defaults_empty_when_missing():
+    """REDEEM events sometimes have asset='' - shouldn't crash."""
+    api = FakeAPI(
+        leaderboard=[],
+        activity_by_addr={"0xA": [
+            {"conditionId": "0xMARKET", "type": "REDEEM",
+             "side": "", "outcome": "", "size": 100, "usdcSize": 100,
+             "price": 0, "timestamp": 1},
+        ]},
+    )
+    trades = api.user_activity("0xA")
+    assert trades[0].token_id == ""
