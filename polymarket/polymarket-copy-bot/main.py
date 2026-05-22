@@ -81,6 +81,7 @@ def cmd_watch(args) -> int:
             storage=storage, api=api, clock=clock, gate=gate,
             copy_amount_usd=config.COPY_AMOUNT_USD,
             min_order_usd=config.MIN_ORDER_USD,
+            signals_jsonl_path=config.SIGNALS_JSONL_PATH,
         )
         mode_str = "DRY-RUN"
     else:
@@ -90,6 +91,7 @@ def cmd_watch(args) -> int:
             copy_amount_usd=config.COPY_AMOUNT_USD,
             min_order_usd=config.MIN_ORDER_USD,
             clob_client=clob,
+            signals_jsonl_path=config.SIGNALS_JSONL_PATH,
         )
         mode_str = "LIVE"
 
