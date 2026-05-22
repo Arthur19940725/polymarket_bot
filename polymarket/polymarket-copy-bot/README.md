@@ -32,6 +32,23 @@ python main.py backtest --days 60
 3. **第三周起**：小额开实盘（`COPY_AMOUNT_USD=2`），观察实盘和回测的差距
 4. **稳定后**：调高 `COPY_AMOUNT_USD`
 
+## Signal 模式（受地区限制时的用法）
+
+如果 Polymarket 在你的地区**封锁下单**（CLOB API 返回 403），bot 仍可作为"分析+决策辅助"工具运行：`watch --dry-run` 在每个新 OPEN 事件时打印结构化 signal 块（含 Polymarket URL + trader rank/score），你可以**手动**到浏览器下单：
+
+```
+============================================================
+>>> SIGNAL  2026-05-22 22:57:52 UTC
+Trader  0x6a72f618...  (rank #1  win 79%  PnL $640,112)
+Market  Cervia: Andrea Guerrieri vs Max Alcala Gurri
+URL     https://polymarket.com/event/atp-guerrie-gurri-2026-05-22
+Action  BUY  Max Alcala Gurri  @ $0.4400
+Size    $1.00  ~  2.27 shares
+============================================================
+```
+
+URL 直达 Polymarket 市场，点开就能下单。
+
 ## 风控说明（重要）
 
 三道硬风控（任一触发都会拒绝**新开仓**，但**平仓始终允许**——保留止损能力）：

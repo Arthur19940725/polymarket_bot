@@ -85,3 +85,19 @@ def test_trade_token_id_defaults_empty_when_missing():
     )
     trades = api.user_activity("0xA")
     assert trades[0].token_id == ""
+
+
+def test_trade_carries_slug_and_title_for_signal_output():
+    """Signal output needs slug (-> URL) + title (human label)."""
+    api = FakeAPI(
+        leaderboard=[],
+        activity_by_addr={"0xA": [
+            {"conditionId": "0xM", "asset": "asset_x",
+             "type": "TRADE", "side": "BUY", "outcome": "Yes",
+             "size": 100, "usdcSize": 40, "price": 0.4, "timestamp": 1,
+             "slug": "test-event-2026", "title": "Test Event"},
+        ]},
+    )
+    t = api.user_activity("0xA")[0]
+    assert t.slug == "test-event-2026"
+    assert t.title == "Test Event"

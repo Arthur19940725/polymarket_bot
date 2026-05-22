@@ -33,6 +33,8 @@ class Trade:
     usdc_size: float     # USDC value of the event
     price: float         # 0 for REDEEM/MERGE
     timestamp: int
+    slug: str = ""       # URL-friendly market id; used to build polymarket.com URL
+    title: str = ""      # human-readable market title
 
 
 @dataclass(frozen=True)
@@ -74,6 +76,8 @@ def _trade_from_raw(r: dict) -> Trade:
         usdc_size=float(r.get("usdcSize", 0) or 0),
         price=float(r.get("price", 0) or 0),
         timestamp=int(r.get("timestamp", 0)),
+        slug=str(r.get("slug", "") or ""),
+        title=str(r.get("title", "") or ""),
     )
 
 
