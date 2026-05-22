@@ -58,13 +58,39 @@ class DryRunExecutor:
 
     def __init__(self, storage: Storage, api: PolymarketAPI, clock: Clock,
                  gate: RiskGate, copy_amount_usd: float,
-                 min_order_usd: float = 1.0):
+                 min_order_usd: float = 1.0,
+                 signals_jsonl_path: Optional[str] = None):
         self.storage = storage
         self.api = api
         self.clock = clock
         self.gate = gate
         self.copy_amount_usd = copy_amount_usd
         self.min_order_usd = min_order_usd
+        self.signals_jsonl_path = signals_jsonl_path
+
+    def _append_signal_jsonl(self, e: Event,
+                             trader_meta: Optional[TopTrader]) -> None:
+        if not self.signals_jsonl_path:
+            return
+        import json
+        url = _POLYMARKET_BASE + e.slug if e.slug else ""
+        record = {
+            "ts": self.clock.now().isoformat(),
+            "event_ts": e.timestamp,
+            "source_trader": e.source_trader,
+            "rank": trader_meta.rank if trader_meta else None,
+            "win_rate": trader_meta.win_rate if trader_meta else None,
+            "total_pnl": trader_meta.total_pnl if trader_meta else None,
+            "market_id": e.market_id,
+            "title": e.title,
+            "slug": e.slug,
+            "url": url,
+            "side": e.side,
+            "price": e.price,
+            "copy_amount_usd": self.copy_amount_usd,
+        }
+        with open(self.signals_jsonl_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
     def _now(self) -> str:
         return self.clock.now().isoformat()
@@ -95,6 +121,7 @@ class DryRunExecutor:
         meta = top.get(e.source_trader)
         logger.info("\n%s",
                     format_signal(e, meta, self.copy_amount_usd))
+        self._append_signal_jsonl(e, meta)
 
         size_usd = max(self.copy_amount_usd, self.min_order_usd)
         shares = size_usd / e.price if e.price > 0 else 0

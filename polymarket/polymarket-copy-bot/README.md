@@ -49,6 +49,16 @@ Size    $1.00  ~  2.27 shares
 
 URL 直达 Polymarket 市场，点开就能下单。
 
+**剪贴板加速**：DryRunExecutor 还把每个 SIGNAL 追加成 JSON 行写到 `data/signals.jsonl`（路径可由 `SIGNALS_JSONL_PATH` 环境变量覆盖）。需要快速拷贝最近一条信号的 URL 到浏览器粘贴时：
+
+```bash
+python tools/clip_latest_signal.py
+# 拷贝最近第 3 条信号的 market_id（其他字段也可选）
+python tools/clip_latest_signal.py --offset 3 --field market_id
+```
+
+工具运行在你的交互 shell 里（不是后台 watcher 进程内），所以剪贴板访问稳定。多个 SIGNAL 快速触发时不会互相覆盖——所有信号都在 jsonl 里，按需取。
+
 ## 风控说明（重要）
 
 三道硬风控（任一触发都会拒绝**新开仓**，但**平仓始终允许**——保留止损能力）：

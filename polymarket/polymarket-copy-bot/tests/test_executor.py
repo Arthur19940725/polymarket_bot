@@ -138,6 +138,60 @@ def test_signal_emitted_on_open_event(tmp_db_path, capsys, caplog):
     assert "polymarket.com/event/my-market-2026" in text
 
 
+def test_signal_appended_to_jsonl(tmp_db_path, tmp_path):
+    """Each SIGNAL is also appended to data/signals.jsonl as a structured
+    record so tools/clip_latest_signal.py (and other downstream tools)
+    can replay the operator queue without parsing logs."""
+    import json
+    s = Storage(tmp_db_path)
+    s.save_top_10("2026-05-22", [TopTrader(
+        date="2026-05-22", trader_addr="0xA", score=0.8,
+        win_rate=0.75, total_pnl=100000.0, sharpe_like=0.4, rank=1,
+    )])
+    api = FakeAPI(leaderboard=[], activity_by_addr={})
+    clock = FakeClock(datetime(2026, 5, 22, 12, 0, tzinfo=timezone.utc))
+    gate = RiskGate(storage=s, clock=clock, daily_loss_limit=50)
+    signals_path = str(tmp_path / "signals.jsonl")
+    ex = DryRunExecutor(storage=s, api=api, clock=clock, gate=gate,
+                        copy_amount_usd=1.0, min_order_usd=1.0,
+                        signals_jsonl_path=signals_path)
+    ex.handle_event(Event(
+        kind="OPEN", source_trader="0xA",
+        market_id="0xMARKET", side="Yes", price=0.4,
+        timestamp=1779100000,
+        slug="my-market-2026", title="My Market",
+    ))
+    with open(signals_path) as f:
+        lines = f.readlines()
+    assert len(lines) == 1
+    rec = json.loads(lines[0])
+    assert rec["url"] == "https://polymarket.com/event/my-market-2026"
+    assert rec["source_trader"] == "0xA"
+    assert rec["side"] == "Yes"
+    assert rec["price"] == 0.4
+    assert rec["title"] == "My Market"
+    assert rec["copy_amount_usd"] == 1.0
+
+
+def test_signal_jsonl_default_path_is_none_skipped(tmp_db_path):
+    """If signals_jsonl_path is None, the jsonl write is a no-op
+    (backward compat with code that doesn't set this kwarg)."""
+    s = Storage(tmp_db_path)
+    api = FakeAPI(leaderboard=[], activity_by_addr={})
+    clock = FakeClock(datetime(2026, 5, 22, 12, 0, tzinfo=timezone.utc))
+    gate = RiskGate(storage=s, clock=clock, daily_loss_limit=50)
+    ex = DryRunExecutor(storage=s, api=api, clock=clock, gate=gate,
+                        copy_amount_usd=1.0, min_order_usd=1.0)
+    # Should not raise even without signals path
+    ex.handle_event(Event(
+        kind="OPEN", source_trader="0xA",
+        market_id="0xMARKET", side="Yes", price=0.4,
+        timestamp=1779100000,
+        slug="my-market-2026", title="My Market",
+    ))
+    assert len(s.list_open_positions()) == 1
+
+
 def test_resolve_event_marks_position_resolved_with_win_pnl(tmp_db_path):
     """When source REDEEMs, our matching position(s) flip to RESOLVED.
     Assumption: source only REDEEMs the winning outcome, and we mirrored

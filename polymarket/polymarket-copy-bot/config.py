@@ -49,6 +49,7 @@ POLL_INTERVAL_SEC = int(os.getenv("POLL_INTERVAL_SEC", "30"))
 
 # Storage
 DB_PATH = os.getenv("DB_PATH", "data/bot.sqlite")
+SIGNALS_JSONL_PATH = os.getenv("SIGNALS_JSONL_PATH", "data/signals.jsonl")
 
 # Polymarket minimum order size (USDC)
 MIN_ORDER_USD = 1.0
