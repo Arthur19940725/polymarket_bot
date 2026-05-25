@@ -173,6 +173,76 @@ def test_signal_appended_to_jsonl(tmp_db_path, tmp_path):
     assert rec["copy_amount_usd"] == 1.0
 
 
+def test_resolve_with_matching_token_id_marks_win(tmp_db_path):
+    """source REDEEM token_id == our position token_id -> we won."""
+    ex, s, _ = _make_executor(tmp_db_path)
+    ex.handle_event(Event(
+        kind="OPEN", source_trader="0xA", market_id="m1",
+        side="Yes", price=0.4, timestamp=1, token_id="TOK_YES"))
+    ex.handle_event(Event(
+        kind="RESOLVE", source_trader="0xA", market_id="m1",
+        side="", price=0.0, timestamp=2, token_id="TOK_YES"))
+    pos = s.list_open_positions()
+    assert pos == []
+    import sqlite3
+    conn = sqlite3.connect(tmp_db_path)
+    conn.row_factory = sqlite3.Row
+    row = conn.execute("SELECT * FROM our_positions WHERE source_trader='0xA'"
+                       ).fetchone()
+    # size_usd=5, open=0.4 -> shares=12.5, win pnl = (1-0.4)*12.5 = 7.5
+    assert row["realized_pnl"] == pytest.approx(7.5)
+
+
+def test_resolve_with_different_token_id_marks_loss(tmp_db_path):
+    """Stanley Cup case: source hedged Yes+No, REDEEM'd the winning Avalanche
+    token, but our mirror was the Golden Knights position -> we LOST."""
+    ex, s, _ = _make_executor(tmp_db_path)
+    # We mirrored source's BUY of Golden Knights (token_id A)
+    ex.handle_event(Event(
+        kind="OPEN", source_trader="0xA", market_id="m1",
+        side="Golden Knights", price=0.4, timestamp=1, token_id="TOK_GK"))
+    # Source actually REDEEMs the OTHER token (Avalanche, token_id B)
+    ex.handle_event(Event(
+        kind="RESOLVE", source_trader="0xA", market_id="m1",
+        side="", price=0.0, timestamp=2, token_id="TOK_AVA"))
+    pos = s.list_open_positions()
+    assert pos == []
+    import sqlite3
+    conn = sqlite3.connect(tmp_db_path)
+    conn.row_factory = sqlite3.Row
+    row = conn.execute("SELECT * FROM our_positions WHERE source_trader='0xA'"
+                       ).fetchone()
+    # size_usd=5, open=0.4 -> shares=12.5, loss pnl = (0-0.4)*12.5 = -5.0
+    assert row["realized_pnl"] == pytest.approx(-5.0)
+
+
+def test_resolve_with_missing_token_id_falls_back_to_optimistic_win(tmp_db_path):
+    """Legacy positions without token_id should still RESOLVE (back-compat)
+    by assuming win, so we don't accidentally flip all old data to losses."""
+    s = Storage(tmp_db_path)
+    api = FakeAPI(leaderboard=[], activity_by_addr={})
+    clock = FakeClock(datetime(2026, 5, 18, 12, 0, tzinfo=timezone.utc))
+    gate = RiskGate(storage=s, clock=clock, daily_loss_limit=50.0)
+    ex = DryRunExecutor(storage=s, api=api, clock=clock, gate=gate,
+                        copy_amount_usd=5.0, min_order_usd=1.0)
+    # Insert a legacy position directly (no token_id)
+    pid = s.insert_position(Position(
+        source_trader="0xA", market_id="m1", side="Yes",
+        size_usd=5.0, opened_at=clock.now().isoformat(), status="OPEN"))
+    # Need an OPEN trade row so resolve can read open_price
+    from storage import TradeRow
+    s.record_trade(TradeRow(
+        position_id=pid, action="OPEN", price=0.4, size=12.5,
+        tx_hash=None, ts=clock.now().isoformat(), dry_run=True))
+    ex.handle_event(Event(
+        kind="RESOLVE", source_trader="0xA", market_id="m1",
+        side="", price=0.0, timestamp=2, token_id="TOK_YES"))
+    closed = s.get_position_by_id(pid)
+    assert closed.status == "RESOLVED"
+    # Optimistic-win fallback: (1.0 - 0.4) * 12.5 = 7.5
+    assert closed.realized_pnl == pytest.approx(7.5)
+
+
 def test_signal_jsonl_default_path_is_none_skipped(tmp_db_path):
     """If signals_jsonl_path is None, the jsonl write is a no-op
     (backward compat with code that doesn't set this kwarg)."""

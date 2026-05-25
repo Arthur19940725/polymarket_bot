@@ -128,7 +128,7 @@ class DryRunExecutor:
         pid = self.storage.insert_position(Position(
             source_trader=e.source_trader, market_id=e.market_id,
             side=e.side, size_usd=size_usd, opened_at=self._now(),
-            status="OPEN",
+            status="OPEN", token_id=e.token_id,
         ))
         self.storage.record_trade(TradeRow(
             position_id=pid, action="OPEN", price=e.price, size=shares,
@@ -164,10 +164,16 @@ class DryRunExecutor:
                     e.source_trader, e.market_id, e.side, e.price, realized)
 
     def _handle_resolve(self, e: Event) -> None:
-        """REDEEM by source -> mark all our OPEN positions on this market
-        as RESOLVED. Assumption: source only REDEEMs the winning outcome
-        and we mirrored their first BUY -> we also win.
-        PnL per position = (1.0 - open_price) * shares."""
+        """REDEEM by source -> mark our OPEN positions on this market as RESOLVED.
+
+        Source REDEEMs exactly the winning side's token. We compare each of
+        our positions' token_id against the REDEEM event's token_id:
+          - same token_id  -> we mirrored the winner, PnL = (1.0 - open_price) * shares
+          - different      -> source held the losing side too (hedge); our
+                              position was the loser, PnL = -open_price * shares
+        If the position has no recorded token_id (legacy or unknown), fall
+        back to the old optimistic-win behavior and flag it in the log.
+        """
         positions = self.storage.list_open_positions_for_market(
             e.source_trader, e.market_id)
         if not positions:
@@ -179,18 +185,29 @@ class DryRunExecutor:
                 continue
             open_price = opens[0].price
             shares = pos.size_usd / open_price
-            realized = (1.0 - open_price) * shares
+            # Decide win vs loss by comparing tokens. Unknown -> optimistic.
+            if pos.token_id and e.token_id:
+                won = (pos.token_id == e.token_id)
+                outcome_note = "win" if won else "LOSS"
+                close_price = 1.0 if won else 0.0
+            else:
+                won = True
+                outcome_note = "assumed win (no token_id)"
+                close_price = 1.0
+            realized = (close_price - open_price) * shares
             self.storage.close_position(
                 pid=pos.id, closed_at=self._now(),
                 realized_pnl=realized, new_status="RESOLVED",
             )
             self.storage.record_trade(TradeRow(
-                position_id=pos.id, action="CLOSE", price=1.0, size=shares,
+                position_id=pos.id, action="CLOSE",
+                price=close_price, size=shares,
                 tx_hash=None, ts=self._now(), dry_run=True,
             ))
             self.gate.record_realized_pnl(realized)
-            logger.info("[dry-run RESOLVE] %s %s %s (pnl=$%.2f, assumed win)",
-                        e.source_trader, e.market_id, pos.side, realized)
+            logger.info("[dry-run RESOLVE] %s %s %s (pnl=$%.2f, %s)",
+                        e.source_trader, e.market_id, pos.side,
+                        realized, outcome_note)
 
 
 class LiveExecutor(DryRunExecutor):
