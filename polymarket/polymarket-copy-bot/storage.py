@@ -27,13 +27,15 @@ class TopTrader:
 class Position:
     source_trader: str
     market_id: str
-    side: str  # 'YES' or 'NO'
+    side: str  # 'YES' or 'NO' or outcome string
     size_usd: float
     opened_at: str
     status: str  # OPEN | MIRRORED_CLOSE | ORPHANED_HOLD | RESOLVED
     id: Optional[int] = None
     closed_at: Optional[str] = None
     realized_pnl: Optional[float] = None
+    token_id: str = ""  # per-outcome CTF token id; needed at RESOLVE time
+                        # to disambiguate winning vs losing side
 
 
 @dataclass(frozen=True)
@@ -69,6 +71,7 @@ CREATE TABLE IF NOT EXISTS our_positions (
     closed_at TEXT,
     realized_pnl REAL,
     status TEXT NOT NULL,
+    token_id TEXT NOT NULL DEFAULT '',
     UNIQUE (source_trader, market_id, side)
 );
 
@@ -122,6 +125,20 @@ class Storage:
             c.execute("PRAGMA journal_mode = WAL")
             c.execute("PRAGMA synchronous = NORMAL")
             c.executescript(_SCHEMA)
+            # In-place migration: add columns to pre-existing DBs that were
+            # created before the column existed. SQLite supports ADD COLUMN
+            # but errors if the column already exists -- we swallow that one
+            # error so re-init is idempotent.
+            self._add_column_if_missing(c, "our_positions",
+                                        "token_id TEXT NOT NULL DEFAULT ''")
+
+    @staticmethod
+    def _add_column_if_missing(conn, table: str, column_def: str) -> None:
+        col_name = column_def.split()[0]
+        existing = {row[1] for row in conn.execute(
+            f"PRAGMA table_info({table})").fetchall()}
+        if col_name not in existing:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column_def}")
 
     def list_tables(self) -> list[str]:
         with self._conn() as c:
@@ -154,9 +171,10 @@ class Storage:
         with self._conn() as c:
             cur = c.execute(
                 "INSERT INTO our_positions (source_trader, market_id, side, "
-                "size_usd, opened_at, status) VALUES (?, ?, ?, ?, ?, ?)",
+                "size_usd, opened_at, status, token_id) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
                 (p.source_trader, p.market_id, p.side, p.size_usd,
-                 p.opened_at, p.status),
+                 p.opened_at, p.status, p.token_id),
             )
             return cur.lastrowid
 

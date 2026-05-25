@@ -175,3 +175,28 @@ def test_metrics_cache_upsert(tmp_db_path):
     got = s.get_cached_metrics("2026-05-19", "0xA")
     assert got["resolved_count"] == 20
     assert got["total_pnl"] == 200.0
+
+
+def test_position_persists_token_id(tmp_db_path):
+    """token_id is needed at RESOLVE time to compare against the REDEEM
+    token and decide whether we won or lost (hedge market disambiguation)."""
+    s = Storage(tmp_db_path)
+    pid = s.insert_position(Position(
+        source_trader="0xA", market_id="m1", side="Yes",
+        size_usd=5.0, opened_at="2026-05-23T00:00:00+00:00",
+        status="OPEN", token_id="TOKEN_YES_42",
+    ))
+    got = s.get_position_by_id(pid)
+    assert got.token_id == "TOKEN_YES_42"
+
+
+def test_position_token_id_defaults_empty_for_legacy_rows(tmp_db_path):
+    """Old rows inserted before this migration still load -- token_id=''."""
+    s = Storage(tmp_db_path)
+    pid = s.insert_position(Position(
+        source_trader="0xA", market_id="m1", side="Yes",
+        size_usd=5.0, opened_at="2026-05-23T00:00:00+00:00",
+        status="OPEN",  # no token_id passed
+    ))
+    got = s.get_position_by_id(pid)
+    assert got.token_id == ""

@@ -101,7 +101,8 @@ python -m pytest -v
 
 - 回测**不模拟**：滑点、挂单未成交、网络延迟、Polymarket 临时下架市场。实盘 PnL 大概率低于回测。
 - 同一 source_trader 对同一市场连续加仓时，本机器人**只跟第一次**（避免你的固定金额策略和对方加仓策略冲突）。
-- **REDEEM 状态推断**：当 source_trader 在某个市场触发 REDEEM 事件时，bot 假设"source 只 REDEEM 赢的那边 + 我们镜像了相同方向 → 我们也赢"，将持仓置为 RESOLVED + PnL = `(1.0 - 开仓价) × 份数`。极少数情况（source 同时持 Yes+No 后 MERGE 而非 REDEEM）不在此覆盖。
+- **REDEEM 状态推断**：当 source_trader 在某个市场触发 REDEEM 事件时，bot 会**对比 REDEEM 事件的 token_id 与我们持仓的 token_id**：相同 = 赢（PnL = `(1.0 - 开仓价) × 份数`），不同 = 输（PnL = `-开仓价 × 份数`）。这处理了 source 同时持 Yes+No（hedge）后只 REDEEM 赢的那边、而我们镜像了输的那边的情况。
+- **遗留持仓（无 token_id）**：迁移前创建的持仓没有 token_id，遇到 REDEEM 时回退到"假设赢"的旧行为，并在日志标注。
 - **MERGE 事件未处理**：source 用 MERGE 平仓的极少数场景，bot 不感知。
 
 ## Polymarket API 真实情况（联调记录）
