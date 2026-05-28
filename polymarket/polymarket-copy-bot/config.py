@@ -43,6 +43,9 @@ MIN_LAST_TRADE_DAYS = int(os.getenv("MIN_LAST_TRADE_DAYS", "14"))
 # Absolute thresholds: "best traders" must be profitable winners
 MIN_TOTAL_PNL_USD = float(os.getenv("MIN_TOTAL_PNL_USD", "0"))
 MIN_WIN_RATE = float(os.getenv("MIN_WIN_RATE", "0.5"))
+# Rank smoothing: order traders by rolling average of their raw composite
+# score over the last N days (0 disables -> use today's score only).
+RANK_SMOOTHING_DAYS = int(os.getenv("RANK_SMOOTHING_DAYS", "3"))
 
 # Watcher
 POLL_INTERVAL_SEC = int(os.getenv("POLL_INTERVAL_SEC", "30"))

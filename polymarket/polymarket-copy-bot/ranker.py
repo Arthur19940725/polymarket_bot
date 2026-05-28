@@ -17,7 +17,7 @@ from pnl_reconstructor import reconstruct, aggregate
 from config import (
     RANK_WINDOW_DAYS, RANK_WEIGHTS, RANK_CANDIDATE_POOL_SIZE,
     MIN_RESOLVED_MARKETS, MIN_LIFETIME_VOLUME_USD, MIN_LAST_TRADE_DAYS,
-    MIN_TOTAL_PNL_USD, MIN_WIN_RATE,
+    MIN_TOTAL_PNL_USD, MIN_WIN_RATE, RANK_SMOOTHING_DAYS,
 )
 
 
@@ -127,18 +127,36 @@ class Ranker:
         w1, w2, w3 = RANK_WEIGHTS
         scored = []
         for i, m in enumerate(passing):
-            score = w1 * z_win[i] + w2 * z_pnl[i] + w3 * z_sharpe[i]
-            scored.append((score, m))
+            raw = w1 * z_win[i] + w2 * z_pnl[i] + w3 * z_sharpe[i]
+            # Ordering uses a rolling average of this trader's raw scores over
+            # the last RANK_SMOOTHING_DAYS, so a single hot/cold day doesn't
+            # churn the top list. We persist the RAW score (not smoothed) so
+            # tomorrow's average doesn't compound smoothing on smoothing.
+            order_key = self._smoothed_score(m.address, raw)
+            scored.append((order_key, raw, m))
         scored.sort(key=lambda x: x[0], reverse=True)
         top = scored[:n]
         return [
             TopTrader(
-                date=date_str, trader_addr=m.address, score=score,
+                date=date_str, trader_addr=m.address, score=raw,
                 win_rate=m.win_rate, total_pnl=m.total_pnl,
                 sharpe_like=m.sharpe_like, rank=rank,
             )
-            for rank, (score, m) in enumerate(top, start=1)
+            for rank, (_order, raw, m) in enumerate(top, start=1)
         ]
+
+    def _smoothed_score(self, address: str, today_raw: float) -> float:
+        days = getattr(sys.modules[__name__], "RANK_SMOOTHING_DAYS",
+                       RANK_SMOOTHING_DAYS)
+        if days <= 0 or self.storage is None:
+            return today_raw
+        from datetime import timedelta
+        since = (self.clock.now().date()
+                 - timedelta(days=days)).isoformat()
+        history = self.storage.get_trader_scores_since(address, since)
+        # history already includes any prior-day stored score; add today's raw
+        # (today's row isn't persisted yet at this point).
+        return (sum(history) + today_raw) / (len(history) + 1)
 
     def rank_and_persist(self, n: int = 10) -> list[TopTrader]:
         if self.storage is None:

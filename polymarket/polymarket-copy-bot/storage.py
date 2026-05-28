@@ -158,6 +158,19 @@ class Storage:
                   e.sharpe_like, e.rank) for e in entries],
             )
 
+    def get_trader_scores_since(self, trader_addr: str,
+                                since_date: str) -> list[float]:
+        """Raw composite scores this trader earned in top_10 snapshots on or
+        after since_date. Used for rolling-average rank smoothing. Only
+        top_10 days are recorded, so this is a partial history by design."""
+        with self._conn() as c:
+            rows = c.execute(
+                "SELECT score FROM top_10 WHERE trader_addr=? AND date>=? "
+                "ORDER BY date ASC",
+                (trader_addr, since_date),
+            ).fetchall()
+            return [r["score"] for r in rows]
+
     def load_top_10(self, date: str) -> list[TopTrader]:
         with self._conn() as c:
             rows = c.execute(

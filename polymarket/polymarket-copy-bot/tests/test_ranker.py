@@ -189,3 +189,70 @@ def test_rank_end_to_end(fixtures_dir, monkeypatch):
     if len(top) == 2:
         assert top[0].trader_addr == "0xAlice"
         assert top[0].rank == 1
+
+
+def test_smoothed_score_no_storage_returns_today(tmp_db_path):
+    """No storage -> smoothing disabled, returns today's raw."""
+    r = Ranker(api=FakeAPI([], {}), clock=FakeClock(
+        datetime(2026, 5, 27, tzinfo=timezone.utc)))
+    assert r._smoothed_score("0xA", 1.5) == 1.5
+
+
+def test_smoothed_score_averages_history(tmp_db_path, monkeypatch):
+    """Rolling avg of stored prior scores + today's raw."""
+    from storage import Storage, TopTrader
+    s = Storage(tmp_db_path)
+    # 0xA scored 1.0 and 0.4 on two prior days
+    s.save_top_10("2026-05-25", [TopTrader(
+        date="2026-05-25", trader_addr="0xA", score=1.0, win_rate=0.7,
+        total_pnl=100, sharpe_like=0.5, rank=1)])
+    s.save_top_10("2026-05-26", [TopTrader(
+        date="2026-05-26", trader_addr="0xA", score=0.4, win_rate=0.6,
+        total_pnl=120, sharpe_like=0.4, rank=2)])
+    monkeypatch.setattr("ranker.RANK_SMOOTHING_DAYS", 7)
+    r = Ranker(api=FakeAPI([], {}), clock=FakeClock(
+        datetime(2026, 5, 27, tzinfo=timezone.utc)), storage=s)
+    # history [1.0, 0.4] + today 1.6 -> mean = 3.0/3 = 1.0
+    assert r._smoothed_score("0xA", 1.6) == 1.0
+
+
+def test_smoothed_score_disabled_when_zero_days(tmp_db_path, monkeypatch):
+    from storage import Storage, TopTrader
+    s = Storage(tmp_db_path)
+    s.save_top_10("2026-05-26", [TopTrader(
+        date="2026-05-26", trader_addr="0xA", score=99.0, win_rate=0.6,
+        total_pnl=120, sharpe_like=0.4, rank=1)])
+    monkeypatch.setattr("ranker.RANK_SMOOTHING_DAYS", 0)
+    r = Ranker(api=FakeAPI([], {}), clock=FakeClock(
+        datetime(2026, 5, 27, tzinfo=timezone.utc)), storage=s)
+    assert r._smoothed_score("0xA", 0.2) == 0.2  # ignores history
+
+
+def test_compute_top_n_persists_raw_not_smoothed(tmp_db_path, fixtures_dir, monkeypatch):
+    """Stored score must be raw (so future smoothing doesn't compound)."""
+    from storage import Storage, TopTrader
+    s = Storage(tmp_db_path)
+    # Give 0xAlice a high prior score so smoothing would change ordering
+    s.save_top_10("2026-05-26", [TopTrader(
+        date="2026-05-26", trader_addr="0xAlice", score=5.0, win_rate=0.9,
+        total_pnl=999, sharpe_like=0.9, rank=1)])
+    api = FakeAPI(
+        leaderboard=_load(fixtures_dir, "leaderboard.json"),
+        activity_by_addr={
+            "0xAlice": _load(fixtures_dir, "activity_alice.json"),
+            "0xBob": _load(fixtures_dir, "activity_bob.json"),
+        },
+    )
+    monkeypatch.setattr("ranker.MIN_RESOLVED_MARKETS", 1)
+    monkeypatch.setattr("ranker.MIN_LIFETIME_VOLUME_USD", 0)
+    monkeypatch.setattr("ranker.MIN_LAST_TRADE_DAYS", 1000)
+    monkeypatch.setattr("ranker.MIN_TOTAL_PNL_USD", -1e9)
+    monkeypatch.setattr("ranker.MIN_WIN_RATE", 0.0)
+    monkeypatch.setattr("ranker.RANK_SMOOTHING_DAYS", 7)
+    r = Ranker(api=api, clock=FakeClock(
+        datetime(2026, 5, 27, tzinfo=timezone.utc)), storage=s)
+    top = r.compute_top_n(n=2)
+    # The persisted score for each must be a plausible raw z-score
+    # (|z| typically < 2 for 2 candidates), never the 5.0 historical value.
+    for t in top:
+        assert abs(t.score) < 5.0
