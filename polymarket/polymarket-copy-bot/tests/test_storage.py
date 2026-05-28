@@ -200,3 +200,26 @@ def test_position_token_id_defaults_empty_for_legacy_rows(tmp_db_path):
     ))
     got = s.get_position_by_id(pid)
     assert got.token_id == ""
+
+
+def test_get_trader_scores_since(tmp_db_path):
+    """For rolling-average rank smoothing: fetch a trader's stored raw
+    scores on/after a date, across all top_10 snapshots."""
+    s = Storage(tmp_db_path)
+    s.save_top_10("2026-05-25", [TopTrader(
+        date="2026-05-25", trader_addr="0xA", score=1.0, win_rate=0.7,
+        total_pnl=100, sharpe_like=0.5, rank=1)])
+    s.save_top_10("2026-05-26", [TopTrader(
+        date="2026-05-26", trader_addr="0xA", score=0.4, win_rate=0.6,
+        total_pnl=120, sharpe_like=0.4, rank=2)])
+    s.save_top_10("2026-05-27", [TopTrader(
+        date="2026-05-27", trader_addr="0xB", score=2.0, win_rate=0.9,
+        total_pnl=900, sharpe_like=0.8, rank=1)])
+    # 0xA has scores on 25 and 26
+    scores = s.get_trader_scores_since("0xA", "2026-05-25")
+    assert sorted(scores) == [0.4, 1.0]
+    # since filter excludes 25
+    scores2 = s.get_trader_scores_since("0xA", "2026-05-26")
+    assert scores2 == [0.4]
+    # unknown trader -> empty
+    assert s.get_trader_scores_since("0xZ", "2026-05-01") == []

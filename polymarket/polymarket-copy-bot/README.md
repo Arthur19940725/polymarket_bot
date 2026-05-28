@@ -85,6 +85,7 @@ python tools/clip_latest_signal.py --offset 3 --field market_id
 | `MAX_OPEN_PER_TRADER` | 5 | G4：单交易员最多并发持仓数（0 禁用） |
 | `MIN_TOTAL_PNL_USD` | 0 | 绝对阈值：候选必须满足 total_pnl ≥ 此值 |
 | `MIN_WIN_RATE` | 0.5 | 绝对阈值：候选必须满足 win_rate ≥ 此值 |
+| `RANK_SMOOTHING_DAYS` | 3 | 排名用过去 N 天 raw 分的滚动均值排序，避免头部天天换（0 禁用） |
 | `RANK_WEIGHTS` | 0.3,0.3,0.4 | win_rate / total_pnl / sharpe 权重 |
 | `RANK_WINDOW_DAYS` | 90 | 评分窗口 |
 | `POLL_INTERVAL_SEC` | 30 | 检测新单延迟 |
