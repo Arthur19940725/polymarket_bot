@@ -1,7 +1,8 @@
 """Tests for API client (FakeAPI used throughout)."""
 import json
 import os
-from api_client import FakeAPI, Trade
+import requests
+from api_client import FakeAPI, Trade, RequestsPolymarketAPI
 
 
 def _load(fixtures_dir, name):
@@ -101,3 +102,34 @@ def test_trade_carries_slug_and_title_for_signal_output():
     t = api.user_activity("0xA")[0]
     assert t.slug == "test-event-2026"
     assert t.title == "Test Event"
+
+
+def test_connection_error_rebuilds_session(monkeypatch):
+    """issue #12: a ConnectionError must trigger a fresh session so the
+    next retry doesn't reuse a dead connection pool."""
+    api = RequestsPolymarketAPI()
+    first_session = api._session
+    calls = {"n": 0}
+
+    def boom(*a, **kw):
+        calls["n"] += 1
+        raise requests.exceptions.ConnectionError("dead socket")
+
+    # Patch the session's get to always fail with ConnectionError.
+    monkeypatch.setattr(first_session, "get", boom)
+
+    # _get retries 3x via tenacity; after it gives up, the session must
+    # have been replaced with a new object.
+    import pytest
+    from tenacity import RetryError
+    with pytest.raises(RetryError):
+        api._get("https://example.com/x")
+
+    assert api._session is not first_session, "session should be rebuilt"
+    assert calls["n"] >= 1
+
+
+def test_build_session_sets_browser_ua():
+    s = RequestsPolymarketAPI._build_session()
+    assert "Mozilla" in s.headers["User-Agent"]
+    assert s.headers["Accept"] == "application/json"

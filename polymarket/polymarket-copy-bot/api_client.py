@@ -112,16 +112,34 @@ class RequestsPolymarketAPI:
                  lb_api: str = config.LB_API):
         self.data_api = data_api
         self.lb_api = lb_api
-        self._session = requests.Session()
-        self._session.headers.update({
+        self._session = self._build_session()
+
+    @staticmethod
+    def _build_session() -> requests.Session:
+        s = requests.Session()
+        s.headers.update({
             "User-Agent": _BROWSER_UA,
             "Accept": "application/json",
         })
+        return s
 
     @retry(stop=stop_after_attempt(3),
            wait=wait_exponential(multiplier=1, min=1, max=10))
     def _get(self, url: str, params: dict | None = None):
-        resp = self._session.get(url, params=params, timeout=15)
+        try:
+            resp = self._session.get(url, params=params, timeout=15)
+        except requests.exceptions.ConnectionError:
+            # A long-lived Session can hold dead keep-alive sockets after a
+            # network blip / NAT timeout, and every retry would reuse the
+            # broken pool. Rebuild the session so the next attempt gets a
+            # fresh connection pool, then re-raise for tenacity to retry.
+            # See issue #12.
+            try:
+                self._session.close()
+            except Exception:
+                pass
+            self._session = self._build_session()
+            raise
         if not resp.ok:
             import logging
             logging.warning("HTTP %s on %s params=%s body=%s",
