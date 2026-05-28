@@ -133,3 +133,71 @@ def test_resolve_emitted_even_after_drop_from_top10():
     events = w.poll(top_addresses=[])  # dropped from top 10
     assert len(events) == 1
     assert events[0].kind == "RESOLVE"
+
+
+def test_odds_filter_drops_extreme_high_price():
+    """OPEN at price > max_odds is dropped (near-certain market, no value)."""
+    initial = []
+    after = [{
+        "conditionId": "mX", "type": "TRADE", "side": "BUY", "outcome": "Yes",
+        "size": 1, "usdcSize": 0.999, "price": 0.999, "timestamp": 1747569300,
+        "asset": "tok", "slug": "s", "title": "T",
+    }]
+    api = FakeAPI(leaderboard=[], activity_by_addr={"0xA": initial})
+    w = Watcher(api=api, clock=FakeClock(
+        datetime(2026, 5, 18, tzinfo=timezone.utc)),
+        min_odds=0.05, max_odds=0.95)
+    w.poll(top_addresses=["0xA"])
+    api.set_activity("0xA", after)
+    events = w.poll(top_addresses=["0xA"])
+    assert events == []
+
+
+def test_odds_filter_drops_extreme_low_price():
+    after = [{
+        "conditionId": "mX", "type": "TRADE", "side": "BUY", "outcome": "Yes",
+        "size": 100, "usdcSize": 1.0, "price": 0.01, "timestamp": 1747569300,
+        "asset": "tok", "slug": "s", "title": "T",
+    }]
+    api = FakeAPI(leaderboard=[], activity_by_addr={"0xA": []})
+    w = Watcher(api=api, clock=FakeClock(
+        datetime(2026, 5, 18, tzinfo=timezone.utc)),
+        min_odds=0.05, max_odds=0.95)
+    w.poll(top_addresses=["0xA"])
+    api.set_activity("0xA", after)
+    events = w.poll(top_addresses=["0xA"])
+    assert events == []
+
+
+def test_odds_filter_keeps_normal_price():
+    after = [{
+        "conditionId": "mX", "type": "TRADE", "side": "BUY", "outcome": "Yes",
+        "size": 100, "usdcSize": 44.0, "price": 0.44, "timestamp": 1747569300,
+        "asset": "tok", "slug": "s", "title": "T",
+    }]
+    api = FakeAPI(leaderboard=[], activity_by_addr={"0xA": []})
+    w = Watcher(api=api, clock=FakeClock(
+        datetime(2026, 5, 18, tzinfo=timezone.utc)),
+        min_odds=0.05, max_odds=0.95)
+    w.poll(top_addresses=["0xA"])
+    api.set_activity("0xA", after)
+    events = w.poll(top_addresses=["0xA"])
+    assert len(events) == 1
+    assert events[0].kind == "OPEN"
+    assert events[0].price == 0.44
+
+
+def test_odds_filter_default_allows_everything():
+    """Default min=0 max=1 -> no filtering (back-compat)."""
+    after = [{
+        "conditionId": "mX", "type": "TRADE", "side": "BUY", "outcome": "Yes",
+        "size": 1, "usdcSize": 0.999, "price": 0.999, "timestamp": 1747569300,
+        "asset": "tok", "slug": "s", "title": "T",
+    }]
+    api = FakeAPI(leaderboard=[], activity_by_addr={"0xA": []})
+    w = Watcher(api=api, clock=FakeClock(
+        datetime(2026, 5, 18, tzinfo=timezone.utc)))
+    w.poll(top_addresses=["0xA"])
+    api.set_activity("0xA", after)
+    events = w.poll(top_addresses=["0xA"])
+    assert len(events) == 1

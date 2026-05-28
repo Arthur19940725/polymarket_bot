@@ -46,6 +46,10 @@ MIN_WIN_RATE = float(os.getenv("MIN_WIN_RATE", "0.5"))
 
 # Watcher
 POLL_INTERVAL_SEC = int(os.getenv("POLL_INTERVAL_SEC", "30"))
+# Odds filter: skip OPEN signals outside this price band (extreme-odds markets
+# give sub-cent returns on a small fixed copy). 0/1 disables filtering.
+MIN_ODDS = float(os.getenv("MIN_ODDS", "0.05"))
+MAX_ODDS = float(os.getenv("MAX_ODDS", "0.95"))
 
 # Storage
 DB_PATH = os.getenv("DB_PATH", "data/bot.sqlite")

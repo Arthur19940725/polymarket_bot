@@ -36,9 +36,15 @@ def _fingerprint(t: Trade) -> tuple:
 
 
 class Watcher:
-    def __init__(self, api: PolymarketAPI, clock: Clock):
+    def __init__(self, api: PolymarketAPI, clock: Clock,
+                 min_odds: float = 0.0, max_odds: float = 1.0):
         self.api = api
         self.clock = clock
+        # OPEN events outside [min_odds, max_odds] are dropped. Extreme prices
+        # (e.g. $0.999 near-certain markets) yield sub-cent returns on a $1
+        # copy -- not worth the gas/slippage. CLOSE/RESOLVE ignore this.
+        self.min_odds = min_odds
+        self.max_odds = max_odds
         # address -> set of trade fingerprints seen
         self._seen: dict[str, set[tuple]] = {}
 
@@ -70,6 +76,8 @@ class Watcher:
                 if addr not in top_set:
                     continue  # E1 rule
                 if t.action == "BUY":
+                    if not (self.min_odds <= t.price <= self.max_odds):
+                        continue  # skip extreme-odds opens
                     events.append(Event(
                         kind="OPEN", source_trader=addr,
                         market_id=t.market_id, side=t.outcome,

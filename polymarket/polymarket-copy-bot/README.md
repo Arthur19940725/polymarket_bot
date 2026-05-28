@@ -88,6 +88,7 @@ python tools/clip_latest_signal.py --offset 3 --field market_id
 | `RANK_WEIGHTS` | 0.3,0.3,0.4 | win_rate / total_pnl / sharpe 权重 |
 | `RANK_WINDOW_DAYS` | 90 | 评分窗口 |
 | `POLL_INTERVAL_SEC` | 30 | 检测新单延迟 |
+| `MIN_ODDS` / `MAX_ODDS` | 0.05 / 0.95 | 赔率过滤带；带外的 OPEN 信号丢弃（0/1 禁用） |
 
 ## 测试
 
