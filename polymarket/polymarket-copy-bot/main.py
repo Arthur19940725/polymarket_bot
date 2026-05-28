@@ -74,7 +74,8 @@ def cmd_watch(args) -> int:
                     daily_loss_limit=config.DAILY_LOSS_LIMIT,
                     max_open_positions=config.MAX_OPEN_POSITIONS,
                     max_open_per_trader=config.MAX_OPEN_PER_TRADER)
-    watcher = Watcher(api=api, clock=clock)
+    watcher = Watcher(api=api, clock=clock,
+                      min_odds=config.MIN_ODDS, max_odds=config.MAX_ODDS)
 
     if args.dry_run:
         executor = DryRunExecutor(
